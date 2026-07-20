@@ -38,6 +38,10 @@ class SpecAssembler {
       'goal_shootout_world_capitals.en.json',
       'draw_connect_plant_cell.en.json',
       'quest_path_water_cycle.ar.json',
+      // Grade-4 lesson slice: learning stages around the classic quiz.
+      // Curated app-only spec — carries a `lesson` section the shared
+      // pipeline does not model, so it never lives in root /samples.
+      'goal_shootout_right_angles_lesson.ar.json',
     ];
     final specs = <Map<String, dynamic>>[];
     for (final f in files) {

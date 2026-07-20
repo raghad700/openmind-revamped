@@ -56,6 +56,25 @@
     },
   };
 
+  // ------------------------------------------------------------------ lesson
+  // Primary lesson mode (activated only when spec.lesson exists) is driven
+  // by the shared LessonCore contract; this game contributes rendering only
+  // (its answer mechanic, dialogue bubble, and the two constants below).
+  //
+  // Educational data (line poses, targets, tolerances, answers) comes ONLY
+  // from spec.lesson. FIELD_SKIN below is presentation (colors/strokes) and
+  // FIELD_STAGE is layout, so a theme or interest reskin can never change
+  // the learning content.
+  const FIELD_STAGE = { x: 60, y: 440, width: 600, height: 520 };
+  const FIELD_SKIN = {
+    lineColor: 0xf2f6f8, // chalk-white field lines
+    capColor: 0xffc800,
+    rotateHandleColor: 0x6ecbff,
+    ghostColor: 0xffffff,
+    jointGlowColor: 0x9be24a,
+    cardColor: 0x16242c,
+    lineWidth: 10,
+  };
   const GOAL_POS = [
     { x: 185, y: 472 }, { x: 535, y: 472 },
     { x: 185, y: 768 }, { x: 535, y: 768 },
@@ -296,17 +315,41 @@
         });
       }
 
-      // label card (candy style, neutral)
-      const cardW = 286, cardH = 76;
+      // label card (candy style, neutral) — or, for visual-first lesson
+      // options, a DRAWN angle glyph in place of the text (minimal text:
+      // the option string still exists for records and automation labels).
+      const cardW = 286;
       const card = this.add.graphics();
-      card.fillStyle(GameFeel.darken(0x2e4a5a, 0.3), 1);
-      card.fillRoundedRect(-cardW / 2, 66 + 5, cardW, cardH, 16);
-      card.fillStyle(0x2e4a5a, 1);
-      card.fillRoundedRect(-cardW / 2, 66, cardW, cardH, 16);
-      const txt = this.add.text(0, 66 + cardH / 2, label,
-        EduCore.textStyle(EduCore.isRTL ? 28 : 24, {
-          weight: '800', color: '#FFFFFF', align: 'center', wrap: cardW - 28,
-        })).setOrigin(0.5);
+      let txt;
+      if (opts && opts.glyph) {
+        const gh = 108;
+        card.fillStyle(GameFeel.darken(0x2e4a5a, 0.3), 1);
+        card.fillRoundedRect(-cardW / 2, 56 + 5, cardW, gh, 16);
+        card.fillStyle(0x2e4a5a, 1);
+        card.fillRoundedRect(-cardW / 2, 56, cardW, gh, 16);
+        FieldLineBuilder.drawAngle(card, -44, 148, {
+          angleDeg: opts.glyph.angleDeg,
+          arm: opts.glyph.arm || 62,
+          color: 0xf2f6f8,
+          width: 7,
+          marker: !!opts.glyph.marker,
+          markerColor: 0x9be24a,
+          markerSize: 16,
+          capColor: 0xffc800,
+          capRadius: 6,
+        });
+        txt = this.add.text(0, 56 + gh / 2, '', EduCore.textStyle(24)).setVisible(false);
+      } else {
+        const cardH = 76;
+        card.fillStyle(GameFeel.darken(0x2e4a5a, 0.3), 1);
+        card.fillRoundedRect(-cardW / 2, 66 + 5, cardW, cardH, 16);
+        card.fillStyle(0x2e4a5a, 1);
+        card.fillRoundedRect(-cardW / 2, 66, cardW, cardH, 16);
+        txt = this.add.text(0, 66 + cardH / 2, label,
+          EduCore.textStyle(EduCore.isRTL ? 28 : 24, {
+            weight: '800', color: '#FFFFFF', align: 'center', wrap: cardW - 28,
+          })).setOrigin(0.5);
+      }
 
       c.add([g, card, txt]);
       c.setSize(300, 250);
@@ -434,6 +477,9 @@
 
     // -------------------------------------------------------------- items
     async presentItem(item, hintApi) {
+      // Lesson checkpoint only: the question mechanic is untouched — the
+      // hint ladder is simply withheld (no hints on a first attempt).
+      if (this.lessonHideHints && hintApi.button) hintApi.button.setVisible(false);
       this.clearGoals();
       this.promptText.setText('');
       this.tweens.add({ targets: this.promptPanel, alpha: 1, duration: 200 });
@@ -443,6 +489,7 @@
         let settled = false;
         this.goals = item.options.map((label, i) =>
           this.buildGoal(i, label, {
+            glyph: item.optionGlyphs ? item.optionGlyphs[i] : null,
             onTap: (idx) => {
               if (settled) return;
               settled = true;
@@ -490,9 +537,13 @@
           ease: 'Cubic.easeOut',
           onComplete: () => this.resetBall(),
         });
-        // the right goal glows so learning lands
-        const right = this.goals[item.correctIndex];
-        this.feel.sparkle(right.x, right.y, 0x9be24a, 7);
+        // The right goal glows so learning lands — except under the lesson
+        // retry loop, where the same question comes back and the answer must
+        // stay the learner's to find.
+        if (!this.lessonNoReveal) {
+          const right = this.goals[item.correctIndex];
+          this.feel.sparkle(right.x, right.y, 0x9be24a, 7);
+        }
       }
 
       await new Promise((r) => this.time.delayedCall(800, r));
@@ -583,6 +634,58 @@
           });
         });
       });
+    }
+
+    // ------------------------------------------------------------- lesson
+    /**
+     * Primary lesson mode (spec.lesson): the shared LessonCore contract
+     * drives the whole Recognize → Understand → Apply → Challenge arc; this
+     * game only supplies its rendering hooks (presentItem, coachSay,
+     * setPrompt, lessonFieldScene, fieldStage/fieldSkin). Normal specs
+     * never enter this path.
+     */
+    async beginSession() {
+      const lesson = EduCore.spec.lesson;
+      if (!lesson) return super.beginSession();
+      // The classic tutorial still opens the session (it teaches the tap
+      // mechanic by doing — interaction before explanation), but it runs as
+      // LessonCore's prelude so the calm lesson HUD applies from frame one.
+      // World stages after the first skip it (lesson.tutorial === false).
+      const prelude = lesson.tutorial === false ? null : async () => {
+        await this.runLevelShell(0, async () => {
+          EduCore.setState('tutorial');
+          await this.runTutorial();
+        });
+      };
+      await LessonCore.run(this, lesson, prelude);
+      this.finishSession();
+    }
+
+    /** Manipulative layout rect — layout, never learning data. */
+    get fieldStage() {
+      return FIELD_STAGE;
+    }
+
+    /** Manipulative colors — presentation only (the interest-wrapper seam). */
+    get fieldSkin() {
+      return FIELD_SKIN;
+    }
+
+    /** Clear the pitch for a field-line stage; restore it afterwards. */
+    lessonFieldScene(show) {
+      this.clearGoals();
+      EduCore.setTappables([]);
+      this.keeper.setVisible(!show);
+      this.ball.setVisible(!show);
+      if (show) {
+        this.keeperSway.pause();
+        this.ballIdle.pause();
+      } else {
+        this.keeperSway.resume();
+        this.ballIdle.resume();
+        this.resetBall();
+        this.setPrompt('');
+      }
     }
   }
 

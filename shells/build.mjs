@@ -44,7 +44,9 @@ const phaser = read(findModule('phaser/dist/phaser.min.js'));
 const phaserVersion = JSON.parse(read(findModule('phaser/package.json'))).version;
 const gamefeel = read(join(here, 'src', 'lib', 'gamefeel.js'));
 const mascot = read(join(here, 'src', 'lib', 'mascot.js'));
+const fieldLineBuilder = read(join(here, 'src', 'lib', 'field_line_builder.js'));
 const educore = read(join(here, 'src', 'lib', 'educore.js'));
+const lessonCore = read(join(here, 'src', 'lib', 'lesson_core.js'));
 
 const fontsCss = [
   fontFace('Nunito', 700, findModule('@fontsource/nunito/files/nunito-latin-700-normal.woff2')),
@@ -84,7 +86,9 @@ for (const game of GAMES) {
   html = inject(html, 'PHASER_JS', `${kenneyNote}\n${phaser}`);
   html = inject(html, 'GAMEFEEL_JS', gamefeel);
   html = inject(html, 'MASCOT_JS', mascot);
+  html = inject(html, 'FIELD_LINE_BUILDER_JS', fieldLineBuilder);
   html = inject(html, 'EDUCORE_JS', educore);
+  html = inject(html, 'LESSON_CORE_JS', lessonCore);
   html = inject(html, 'GAME_JS', gameJs);
 
   const out = join(distDir, `${game}.html`);

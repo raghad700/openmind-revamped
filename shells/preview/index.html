@@ -76,10 +76,19 @@ async function init() {
 
 async function load(s) {
   current = s;
-  fullSpec = await (await fetch('/samples/' + s.file)).json();
   $('#log').innerHTML = '';
   clearTimeout(deliverTimer);
   const stub = $('#stubMode').checked;
+  // fullSpec is only needed for the stub-delivery controls below; a failure
+  // fetching it (or a network hiccup) must never block loading the shell.
+  fullSpec = null;
+  try {
+    const res = await fetch('/samples/' + s.file);
+    if (res.ok) fullSpec = await res.json();
+    else log('harness', { error: `GET /samples/${s.file} → ${res.status}` });
+  } catch (e) {
+    log('harness', { error: String(e) });
+  }
   $('#frame').src = `/play/${s.gameType}?spec=${encodeURIComponent(s.file)}${stub ? '&stub=1' : ''}`;
   if (stub) {
     const delay = (+$('#stubDelay').value || 0) * 1000;

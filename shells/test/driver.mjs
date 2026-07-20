@@ -13,7 +13,14 @@ const root = join(shellsDir, '..');
 export const SPEC_MARKER = '/*__EDUMIND_SPEC_JSON__*/null';
 
 export function loadSpec(specFile) {
-  return JSON.parse(readFileSync(join(root, 'samples', specFile), 'utf8'));
+  // Golden specs live in root /samples; curated lesson specs ship only with
+  // the app (they carry sections the shared pipeline does not model).
+  for (const dir of [join(root, 'samples'), join(root, 'edumind-ui', 'assets', 'samples')]) {
+    try {
+      return JSON.parse(readFileSync(join(dir, specFile), 'utf8'));
+    } catch { /* try next dir */ }
+  }
+  throw new Error(`spec not found in samples dirs: ${specFile}`);
 }
 
 export function buildHtml(game, spec) {
@@ -45,6 +52,7 @@ export async function debugState(page) {
     scene: window.EduMindDebug.sceneKey,
     tappables: window.EduMindDebug.tappables,
     connect: window.EduMindDebug.getConnect ? window.EduMindDebug.getConnect() : null,
+    fieldLines: window.EduMindDebug.getFieldLines ? window.EduMindDebug.getFieldLines() : null,
   }));
 }
 
@@ -124,6 +132,30 @@ export async function stepOnce(page, opts = {}) {
     case 'waiting':
       await tap(page, 360, 1100);
       break;
+    // Lesson stages (goal_shootout lesson mode): follow the manipulative's
+    // suggested drags when it wants input, else tap the marked tappable
+    // (continue button / arrangement card), else tap the coach dialog zone.
+    case 'story':
+    case 'explore':
+    case 'notice':
+    case 'discover':
+    case 'apply':
+    case 'checkpoint':
+    case 'reward': {
+      const fl = dbg.fieldLines;
+      if (fl && fl.drags.length) {
+        const d = fl.drags[0];
+        await drag(page, d.ax, d.ay, d.bx, d.by);
+        break;
+      }
+      if (dbg.tappables.length) {
+        const t = dbg.tappables.find((x) => x.correct) || dbg.tappables[0];
+        await tap(page, t.x, t.y);
+        break;
+      }
+      await tap(page, 360, 1010);
+      break;
+    }
     default:
       break;
   }

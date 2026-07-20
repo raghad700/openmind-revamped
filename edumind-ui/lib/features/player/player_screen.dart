@@ -15,7 +15,9 @@ import 'shell_player_io.dart'
 ///  - replay:    saved spec from the offline store (zero network)
 ///  - demo:      bundled sample spec (zero network, zero account)
 ///  - review:    synthesized spec from /review/today
-enum PlayerMode { generated, replay, demo, review }
+///  - stage:     curated world-stage spec (zero network; the caller receives
+///               the raw summary so the world map can award stars locally)
+enum PlayerMode { generated, replay, demo, review, stage }
 
 class PlayerLaunch {
   PlayerLaunch.generated({
@@ -36,6 +38,11 @@ class PlayerLaunch {
       saved = null;
   PlayerLaunch.review(Map<String, dynamic> this.fullSpec)
     : mode = PlayerMode.review,
+      gameId = null,
+      stubSpec = null,
+      saved = null;
+  PlayerLaunch.stage(Map<String, dynamic> this.fullSpec)
+    : mode = PlayerMode.stage,
       gameId = null,
       stubSpec = null,
       saved = null;
@@ -134,6 +141,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _finish() async {
     Map<String, dynamic>? feedback;
     final summary = _summary;
+
+    // World stages record nothing server-side; the map owns stars/progress.
+    if (launch.mode == PlayerMode.stage) {
+      if (!mounted) return;
+      Navigator.of(context).pop(summary == null ? null : {'summary': summary});
+      return;
+    }
 
     // 1. record the session server-side (offline replays queue it locally)
     if (summary != null && launch.mode != PlayerMode.demo) {

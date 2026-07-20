@@ -1,0 +1,91 @@
+{
+  "specVersion": 1,
+  "meta": {
+    "gameType": "goal_shootout",
+    "theme": "football",
+    "subject": "الرياضيات",
+    "topic": "الخطوط والزوايا في ملعبنا",
+    "language": "ar",
+    "grade": 3,
+    "difficulty": "normal",
+    "sessionLength": 3,
+    "numerals": "arabic_indic"
+  },
+  "student": { "name": "البطل", "gender": null, "color": "#58CC02" },
+  "levels": [
+    { "index": 0, "isIntro": true, "title": "الإحماء", "teaching": [], "items": [] }
+  ],
+  "summaryHints": {
+    "concepts": ["الزاوية القائمة"],
+    "nextTopics": ["الزوايا القائمة حولنا"]
+  },
+  "lesson": {
+    "id": "lines_angles_g3_s2",
+    "concept": "الزاوية القائمة",
+    "tutorial": false,
+    "stageOf": { "n": 2, "m": 4 },
+    "doneLevels": ["recognize"],
+    "levels": [
+      {
+        "level": "understand",
+        "stages": [
+          {
+            "type": "story",
+            "lines": [
+              "انظر! ركن منطقة الجزاء ناقص — المباراة لن تبدأ هكذا!",
+              "هل تساعدنا في إكماله أيها المهندس الصغير؟"
+            ],
+            "display": {
+              "lines": [
+                { "x": 200, "y": 560, "angleDeg": 0, "length": 320, "locked": true },
+                { "x": 520, "y": 560, "angleDeg": 90, "length": 240, "locked": true },
+                { "x": 520, "y": 800, "angleDeg": 180, "length": 320, "locked": true }
+              ],
+              "target": { "rect": { "x": 200, "y": 560, "w": 320, "h": 240 } },
+              "snap": { "joinDistance": 28 }
+            }
+          },
+          {
+            "type": "explore",
+            "prompt": "جرّب بنفسك! اسحب الخطين ودوّرهما كما تحب.",
+            "lines": [
+              { "x": 360, "y": 680, "angleDeg": 0, "length": 220 },
+              { "x": 360, "y": 680, "angleDeg": 60, "length": 220 }
+            ],
+            "minInteractions": 2,
+            "continueLabel": "جاهز!",
+            "handleGuides": true,
+            "snap": { "joinDistance": 28 }
+          },
+          {
+            "type": "compare",
+            "prompt": "أي ركن يصلح لمنطقة الجزاء؟ اضغطه.",
+            "arrangements": [{ "angleDeg": 45 }, { "angleDeg": 90 }, { "angleDeg": 135 }],
+            "correctIndex": 1,
+            "feedbackCorrect": "أحسنت! هذا هو الركن المضبوط.",
+            "feedbackRetry": "انظر إلى انفتاح الخطين… جرّب مرة أخرى!"
+          },
+          {
+            "type": "build",
+            "prompt": "رتّب الخطوط الأربعة على الأثر الباهت لتكتمل منطقة الجزاء!",
+            "lines": [
+              { "x": 120, "y": 480, "angleDeg": 30, "length": 320 },
+              { "x": 480, "y": 920, "angleDeg": 165, "length": 320 },
+              { "x": 240, "y": 640, "angleDeg": 45, "length": 240 },
+              { "x": 560, "y": 720, "angleDeg": 120, "length": 240 }
+            ],
+            "target": { "rect": { "x": 200, "y": 560, "w": 320, "h": 240 } },
+            "snap": { "angleDeg": 15, "grid": 40, "joinDistance": 28, "magnet": 36 },
+            "toleranceDeg": 4,
+            "guides": "ghost",
+            "stallHint": "ابدأ بخط طويل: اسحبه من قرصه الأصفر إلى الأثر، ثم دوّره من رأسه الأزرق.",
+            "reveal": [
+              "اكتمل الملعب! انظر إلى الأركان الأربعة المضيئة…",
+              "كل ركن منها زاوية خاصة نسميها الزاوية القائمة — مثل ركن الكتاب تمامًا!"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

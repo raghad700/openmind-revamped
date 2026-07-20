@@ -9,7 +9,7 @@
  * Exits 0 when the summary screen is reached and DONE is tapped.
  */
 import { chromium } from '@playwright/test';
-import { readFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,7 +31,11 @@ const timeoutMs = +opt('timeout', 150000);
 
 const SPEC_MARKER = '/*__EDUMIND_SPEC_JSON__*/null';
 const shell = readFileSync(join(shellsDir, 'dist', `${game}.html`), 'utf8');
-const spec = JSON.parse(readFileSync(join(root, 'samples', specFile), 'utf8'));
+// Golden specs live in root /samples; curated lesson specs ship with the app.
+const specPath = [join(root, 'samples', specFile), join(root, 'edumind-ui', 'assets', 'samples', specFile)]
+  .find((p) => existsSync(p));
+if (!specPath) throw new Error(`spec not found in samples dirs: ${specFile}`);
+const spec = JSON.parse(readFileSync(specPath, 'utf8'));
 const injected = useStub
   ? { specVersion: 1, stub: true, meta: spec.meta, student: spec.student, levels: [] }
   : spec;
@@ -86,6 +90,7 @@ const seenStates = new Set();
 const start = Date.now();
 let done = false;
 let lastState = '';
+let lastSig = '';
 let stuckSince = Date.now();
 
 while (!done && Date.now() - start < timeoutMs) {
@@ -94,8 +99,19 @@ while (!done && Date.now() - start < timeoutMs) {
     scene: window.EduMindDebug.sceneKey,
     tappables: window.EduMindDebug.tappables,
     connect: window.EduMindDebug.getConnect ? window.EduMindDebug.getConnect() : null,
+    fieldLines: window.EduMindDebug.getFieldLines ? window.EduMindDebug.getFieldLines() : null,
     eventTypes: [...new Set(window.EduMindDebug.events.map((e) => e.type))],
   }));
+
+  // Progress signature: lesson stages stay in one state through many drags
+  // and dialogs, so interactions/solved/bridge-traffic also count as progress.
+  const sig = dbg.state +
+    (dbg.fieldLines ? `:${dbg.fieldLines.interactions}/${dbg.fieldLines.solved}` : '') +
+    `:${dbg.eventTypes.length}`;
+  if (sig !== lastSig) {
+    lastSig = sig;
+    stuckSince = Date.now();
+  }
 
   if (dbg.state !== lastState) {
     console.log(`[ap] state=${dbg.state} t=${((Date.now() - start) / 1000).toFixed(1)}s`);
@@ -158,6 +174,28 @@ while (!done && Date.now() - start < timeoutMs) {
       if (dbg.tappables.length) await tap(dbg.tappables[0].x, dbg.tappables[0].y);
       else await tap(360, 1100); // "let's continue" candy button area
       break;
+    // Lesson stages (goal_shootout lesson mode): follow the manipulative's
+    // suggested drags, else the marked tappable, else the coach dialog zone.
+    case 'story':
+    case 'explore':
+    case 'notice':
+    case 'discover':
+    case 'apply':
+    case 'checkpoint':
+    case 'reward': {
+      if (dbg.fieldLines && dbg.fieldLines.drags.length) {
+        const d = dbg.fieldLines.drags[0];
+        await drag(d.ax, d.ay, d.bx, d.by);
+        break;
+      }
+      if (dbg.tappables.length) {
+        const t = dbg.tappables.find((x) => x.correct) || dbg.tappables[0];
+        await tap(t.x, t.y);
+        break;
+      }
+      await tap(360, 1010);
+      break;
+    }
     case 'summary': {
       await page.waitForTimeout(800);
       if (shots) await page.screenshot({ path: join(outDir, `${shots}_summary_full.png`) });
@@ -171,7 +209,7 @@ while (!done && Date.now() - start < timeoutMs) {
       break;
   }
 
-  if (Date.now() - stuckSince > 25000) {
+  if (Date.now() - stuckSince > 45000) {
     console.log(`[ap] STUCK in state=${dbg.state} — aborting`);
     if (shots) await page.screenshot({ path: join(outDir, `${shots}_stuck_${dbg.state}.png`) });
     break;

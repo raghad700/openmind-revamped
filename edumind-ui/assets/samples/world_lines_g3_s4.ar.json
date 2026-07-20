@@ -1,0 +1,78 @@
+{
+  "specVersion": 1,
+  "meta": {
+    "gameType": "goal_shootout",
+    "theme": "football",
+    "subject": "الرياضيات",
+    "topic": "الخطوط والزوايا في ملعبنا",
+    "language": "ar",
+    "grade": 3,
+    "difficulty": "normal",
+    "sessionLength": 3,
+    "numerals": "arabic_indic"
+  },
+  "student": { "name": "البطل", "gender": null, "color": "#58CC02" },
+  "levels": [
+    { "index": 0, "isIntro": true, "title": "الإحماء", "teaching": [], "items": [] }
+  ],
+  "summaryHints": {
+    "concepts": ["الزاوية القائمة", "مقارنة الزوايا"],
+    "nextTopics": ["الزوايا الحادة والمنفرجة"]
+  },
+  "lesson": {
+    "id": "lines_angles_g3_s4",
+    "concept": "الزاوية القائمة",
+    "tutorial": false,
+    "stageOf": { "n": 4, "m": 4 },
+    "doneLevels": ["recognize", "understand", "apply"],
+    "badge": {
+      "id": "field_captain",
+      "name": "قائد الملعب",
+      "line": "أكملت عالم الخطوط والزوايا! أنت الآن قائد الملعب."
+    },
+    "levels": [
+      {
+        "level": "challenge",
+        "stages": [
+          {
+            "type": "mcq",
+            "intro": "التحدي الأخير! هذه المرة وحدك تمامًا.",
+            "item": {
+              "kind": "mcq",
+              "id": "g3s4_mcq",
+              "prompt": "اضغط الزاوية القائمة",
+              "options": ["واسعة", "ضيقة", "شبه مستقيمة", "قائمة تمامًا"],
+              "optionGlyphs": [
+                { "angleDeg": 125 },
+                { "angleDeg": 55 },
+                { "angleDeg": 165 },
+                { "angleDeg": 90 }
+              ],
+              "correctIndex": 3,
+              "explanation": "الزاوية القائمة مثل ركن الكتاب وركن الملعب.",
+              "hints": ["مثل ركن الكتاب تمامًا."],
+              "concepts": ["الزاوية القائمة"],
+              "difficulty": 3
+            }
+          },
+          {
+            "type": "corner",
+            "id": "g3s4_build",
+            "prompt": "ابنِ ركنًا قائمًا مثل ركن الملعب بتدوير الخط الحر!",
+            "lines": [
+              { "x": 280, "y": 680, "angleDeg": 0, "length": 200, "locked": true },
+              { "x": 280, "y": 680, "angleDeg": 45, "length": 200 }
+            ],
+            "targetAngleDeg": 90,
+            "toleranceDeg": 4,
+            "snap": { "angleDeg": 15, "grid": 40, "joinDistance": 28 },
+            "guides": "none",
+            "hintAfterFail": "القائمة مثل ركن الكتاب — لا مائلة ولا واسعة.",
+            "concepts": ["الزاوية القائمة"],
+            "difficulty": 3
+          }
+        ]
+      }
+    ]
+  }
+}

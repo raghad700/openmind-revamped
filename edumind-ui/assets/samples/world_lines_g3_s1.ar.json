@@ -1,0 +1,96 @@
+{
+  "specVersion": 1,
+  "meta": {
+    "gameType": "goal_shootout",
+    "theme": "football",
+    "subject": "الرياضيات",
+    "topic": "الخطوط والزوايا في ملعبنا",
+    "language": "ar",
+    "grade": 3,
+    "difficulty": "normal",
+    "sessionLength": 3,
+    "numerals": "arabic_indic"
+  },
+  "student": { "name": "البطل", "gender": null, "color": "#58CC02" },
+  "levels": [
+    { "index": 0, "isIntro": true, "title": "الإحماء", "teaching": [], "items": [] }
+  ],
+  "summaryHints": {
+    "concepts": ["مقارنة الزوايا"],
+    "nextTopics": ["الزاوية القائمة"]
+  },
+  "lesson": {
+    "id": "lines_angles_g3_s1",
+    "concept": "مقارنة الزوايا",
+    "tutorial": true,
+    "stageOf": { "n": 1, "m": 4 },
+    "doneLevels": [],
+    "levels": [
+      {
+        "level": "recognize",
+        "stages": [
+          {
+            "type": "mcq_set",
+            "interaction": "mcq",
+            "items": [
+              {
+                "kind": "mcq",
+                "id": "g3s1_1",
+                "prompt": "اضغط المرمى الذي فيه الزاوية الأوسع",
+                "options": ["ضيقة", "الأوسع", "متوسطة", "ضيقة جدًا"],
+                "optionGlyphs": [
+                  { "angleDeg": 40 },
+                  { "angleDeg": 120 },
+                  { "angleDeg": 70 },
+                  { "angleDeg": 20 }
+                ],
+                "correctIndex": 1,
+                "explanation": "الزاوية الأوسع هي صاحبة الفتحة الأكبر بين الخطين.",
+                "hints": [
+                  "افتح يديك قليلًا ثم كثيرًا — أيهما أوسع؟",
+                  "انظر إلى الفتحة، لا إلى طول الخطين."
+                ],
+                "concepts": ["مقارنة الزوايا"],
+                "difficulty": 1
+              },
+              {
+                "kind": "mcq",
+                "id": "g3s1_2",
+                "prompt": "اضغط المرمى الذي فيه الزاوية الأضيق",
+                "options": ["واسعة", "متوسطة", "الأضيق", "واسعة جدًا"],
+                "optionGlyphs": [
+                  { "angleDeg": 130 },
+                  { "angleDeg": 85 },
+                  { "angleDeg": 30 },
+                  { "angleDeg": 155 }
+                ],
+                "correctIndex": 2,
+                "explanation": "الفتحة الصغيرة بين الخطين تعني زاوية ضيقة.",
+                "hints": [
+                  "ابحث عن أصغر فتحة بين الخطين.",
+                  "مثل باب الصف المفتوح قليلًا فقط."
+                ],
+                "concepts": ["مقارنة الزوايا"],
+                "difficulty": 2
+              },
+              {
+                "kind": "mcq",
+                "id": "g3s1_3",
+                "prompt": "كم زاوية في المربع؟",
+                "options": ["ثلاث", "أربع", "خمس", "اثنتان"],
+                "correctIndex": 1,
+                "explanation": "للمربع أربعة أركان، وكل ركن زاوية.",
+                "hints": [
+                  "عُدَّ أركان دفترك المربع.",
+                  "عدد الزوايا يساوي عدد الأركان."
+                ],
+                "concepts": ["مقارنة الزوايا"],
+                "difficulty": 3
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

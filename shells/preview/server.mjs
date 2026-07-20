@@ -19,7 +19,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const shellsDir = join(here, '..');
 const root = join(shellsDir, '..');
 const distDir = join(shellsDir, 'dist');
-const samplesDir = join(root, 'samples');
+// Golden specs live in root /samples; curated lesson specs ship only with the
+// app assets. The preview searches both (root wins on duplicate filenames).
+const samplesDirs = [join(root, 'samples'), join(root, 'edumind-ui', 'assets', 'samples')];
+const samplesDir = samplesDirs[0];
+
+function findSpecFile(name) {
+  for (const dir of samplesDirs) {
+    const p = normalize(join(dir, name));
+    if (p.startsWith(dir) && existsSync(p)) return p;
+  }
+  return null;
+}
 
 const PORT = process.env.PREVIEW_PORT || 8765;
 const SPEC_MARKER = '/*__EDUMIND_SPEC_JSON__*/null';
@@ -69,11 +80,16 @@ const server = createServer((req, res) => {
       const shells = existsSync(distDir)
         ? readdirSync(distDir).filter((f) => f.endsWith('.html')).map((f) => f.replace('.html', ''))
         : [];
-      const samples = readdirSync(samplesDir).filter((f) => f.endsWith('.json'));
-      const specs = samples.map((f) => {
-        const j = JSON.parse(readFileSync(join(samplesDir, f), 'utf8'));
-        return { file: f, gameType: j.meta.gameType, topic: j.meta.topic, language: j.meta.language, stub: !!j.stub };
-      });
+      const seen = new Map();
+      for (const dir of samplesDirs) {
+        if (!existsSync(dir)) continue;
+        for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+          if (seen.has(f)) continue; // root wins on duplicates
+          const j = JSON.parse(readFileSync(join(dir, f), 'utf8'));
+          seen.set(f, { file: f, gameType: j.meta.gameType, topic: j.meta.topic, language: j.meta.language, stub: !!j.stub });
+        }
+      }
+      const specs = [...seen.values()];
       return send(res, 200, JSON.stringify({ shells, specs }), MIME['.json']);
     }
 
@@ -84,9 +100,8 @@ const server = createServer((req, res) => {
       if (!existsSync(shellPath)) return send(res, 404, `shell not built: ${game} — run: npm -w shells run build`);
       const specName = url.searchParams.get('spec');
       if (!specName) return send(res, 400, 'missing ?spec=');
-      const specPath = normalize(join(samplesDir, specName.replace(/^samples[\\/]/, '')));
-      if (!specPath.startsWith(samplesDir)) return send(res, 403, 'forbidden');
-      if (!existsSync(specPath)) return send(res, 404, `spec not found: ${specName}`);
+      const specPath = findSpecFile(specName.replace(/^samples[\\/]/, ''));
+      if (!specPath) return send(res, 404, `spec not found: ${specName}`);
       const spec = JSON.parse(readFileSync(specPath, 'utf8'));
       const wantStub = url.searchParams.get('stub') === '1';
       const inject = wantStub && !spec.stub ? buildStub(spec) : spec;
@@ -94,12 +109,20 @@ const server = createServer((req, res) => {
       return send(res, 200, html, MIME['.html']);
     }
 
-    if (path.startsWith('/dist/') || path.startsWith('/samples/')) {
-      const base = path.startsWith('/dist/') ? distDir : samplesDir;
-      const file = normalize(join(base, path.split('/').slice(2).join('/')));
-      if (!file.startsWith(base) || !existsSync(file)) return send(res, 404, 'not found');
+    if (path.startsWith('/dist/')) {
+      const file = normalize(join(distDir, path.split('/').slice(2).join('/')));
+      if (!file.startsWith(distDir) || !existsSync(file)) return send(res, 404, 'not found');
       const ext = file.slice(file.lastIndexOf('.'));
       return send(res, 200, readFileSync(file), MIME[ext] || 'application/octet-stream');
+    }
+
+    if (path.startsWith('/samples/')) {
+      // Same dual-directory lookup as /play/ and /api/list — curated lesson
+      // specs ship only under edumind-ui/assets/samples.
+      const name = path.split('/').slice(2).join('/');
+      const file = findSpecFile(name);
+      if (!file) return send(res, 404, 'not found');
+      return send(res, 200, readFileSync(file), MIME['.json']);
     }
 
     send(res, 404, 'not found');

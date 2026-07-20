@@ -126,6 +126,11 @@ class AppLocalizations {
       'learn_subtitle':
           'Real situations from your city and neighborhood — you explore, decide, and discover the idea yourself.',
       'learn_grade': 'Grade',
+      'worlds_card_title': 'My Worlds',
+      'worlds_card_subtitle': 'Learn your lessons stage by stage',
+      'world_finale_soon': 'Coming soon',
+      'world_grew': 'Your world grew! A new stage is open.',
+      'world_continue': 'Continue',
       'learn_experiences': 'experiences',
       'learn_start': 'Start',
       'learn_replay': 'Replay',
@@ -498,6 +503,11 @@ class AppLocalizations {
       'learn_subtitle':
           'مواقف حقيقية من مدينتك وحيّك — تستكشف وتقرر وتكتشف الفكرة بنفسك.',
       'learn_grade': 'الصف',
+      'worlds_card_title': 'عوالمي',
+      'worlds_card_subtitle': 'تعلّم دروسك مرحلة بعد مرحلة',
+      'world_finale_soon': 'قريبًا',
+      'world_grew': 'كبر عالمك! انفتحت مرحلة جديدة.',
+      'world_continue': 'متابعة',
       'learn_experiences': 'تجارب',
       'learn_start': 'ابدأ',
       'learn_replay': 'أعد التجربة',

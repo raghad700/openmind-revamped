@@ -7,6 +7,8 @@ import 'data/game_store.dart';
 import 'features/composer/composer_screen.dart';
 import 'features/demos/demos_screen.dart';
 import 'features/player/player_screen.dart';
+import 'features/worlds/world_map_screen.dart';
+import 'features/worlds/world_models.dart';
 import 'widgets/mascot.dart';
 
 /// The learning path — a Duolingo-style winding trail, but every node is a
@@ -125,6 +127,7 @@ class HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Column(
                 children: [
                   _headerStats(),
+                  _worldsCard(),
                   Expanded(
                     child: _loading
                         ? const Center(child: CircularProgressIndicator())
@@ -156,6 +159,59 @@ class HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     ),
   );
+
+  /// Entry to the curated lesson worlds — the stage-by-stage learning loop.
+  /// One bundled world for now; the card grows into a shelf as worlds land.
+  Widget _worldsCard() {
+    final l = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Material(
+        color: const Color(0xFF238042),
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () async {
+            await Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => WorldMapScreen(worldAsset: kBundledWorlds[0]),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Row(
+              children: [
+                const Text('⚽', style: TextStyle(fontSize: 32)),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.translate('worlds_card_title'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        l.translate('worlds_card_subtitle'),
+                        style: const TextStyle(fontSize: 13, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _headerStats() {
     final cs = Theme.of(context).colorScheme;

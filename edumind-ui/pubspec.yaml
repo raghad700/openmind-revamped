@@ -83,6 +83,7 @@ flutter:
     - assets/images/
     - assets/shells/
     - assets/samples/
+    - assets/worlds/
     - assets/learning/
 
   # Cairo — the Arabic-first type family, bundled offline (variable font;

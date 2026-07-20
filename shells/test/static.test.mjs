@@ -20,7 +20,9 @@ const read = (p) => readFileSync(p, 'utf8');
 const libs = {
   gamefeel: read(join(shellsDir, 'src', 'lib', 'gamefeel.js')),
   mascot: read(join(shellsDir, 'src', 'lib', 'mascot.js')),
+  fieldLineBuilder: read(join(shellsDir, 'src', 'lib', 'field_line_builder.js')),
   educore: read(join(shellsDir, 'src', 'lib', 'educore.js')),
+  lessonCore: read(join(shellsDir, 'src', 'lib', 'lesson_core.js')),
 };
 const games = Object.fromEntries(
   GAMES.map((g) => [g, read(join(shellsDir, 'src', 'games', `${g}.js`))])
@@ -208,6 +210,53 @@ describe('bridge + lifecycle guarantees', () => {
 
   it('hints never feed XP beyond the 10/7/5 ladder and never reach the engine', () => {
     expect(libs.educore).toMatch(/hintsUsed === 0 \? XP\.noHint : hintsUsed === 1 \? XP\.oneHint : XP\.twoHints/);
+  });
+});
+
+describe('field_line_builder (reusable learning manipulative)', () => {
+  it('is injected into every built shell via its own template slot', () => {
+    expect(template).toContain('/* {{FIELD_LINE_BUILDER_JS}} */');
+    for (const g of GAMES) {
+      expect(read(join(shellsDir, 'dist', `${g}.html`))).toContain('window.FieldLineBuilder');
+    }
+  });
+
+  it('exposes the component factory, pure geometry, and the driver accessor', () => {
+    expect(libs.fieldLineBuilder).toContain('window.FieldLineBuilder');
+    expect(libs.fieldLineBuilder).toContain('getFieldLines');
+    expect(libs.fieldLineBuilder).toMatch(/geometry:\s*\{/);
+  });
+
+  it('renders no text and owns no scenes — presentation stays with the host game', () => {
+    // Text (language/RTL) and scene lifecycle belong to the game shell; the
+    // manipulative is geometry + graphics only, so reskins can never carry
+    // educational content.
+    expect(libs.fieldLineBuilder).not.toMatch(/add\.text\(|textStyle\(/);
+    expect(libs.fieldLineBuilder).not.toMatch(/extends\s+Phaser|extends\s+EduCore/);
+  });
+});
+
+describe('lesson_core (shared primary-lesson contract)', () => {
+  it('is injected into every built shell via its own template slot', () => {
+    expect(template).toContain('/* {{LESSON_CORE_JS}} */');
+    for (const g of GAMES) {
+      expect(read(join(shellsDir, 'dist', `${g}.html`))).toContain('window.LessonCore');
+    }
+  });
+
+  it('exposes the contract surface and registers no scene of its own', () => {
+    expect(libs.lessonCore).toContain('window.LessonCore');
+    expect(libs.lessonCore).toMatch(/LEVELS\s*=/);
+    expect(libs.lessonCore).toMatch(/recognize[\s\S]*understand[\s\S]*apply[\s\S]*challenge/);
+    expect(libs.lessonCore).toContain('getLesson');
+    expect(libs.lessonCore).not.toMatch(/extends\s+Phaser/);
+  });
+
+  it('primary doctrine: no hearts, no loss, no harsh tones in lesson flow', () => {
+    // Retry-until-success means nothing is ever deducted and nothing buzzes.
+    expect(libs.lessonCore).not.toMatch(/hearts\s*(--|-=|=)/);
+    expect(libs.lessonCore).not.toMatch(/wrongTone/);
+    expect(libs.lessonCore).not.toMatch(/xp\s*-=/);
   });
 });
 

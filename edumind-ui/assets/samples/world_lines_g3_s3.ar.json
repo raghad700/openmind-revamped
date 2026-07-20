@@ -1,0 +1,105 @@
+{
+  "specVersion": 1,
+  "meta": {
+    "gameType": "goal_shootout",
+    "theme": "football",
+    "subject": "الرياضيات",
+    "topic": "الخطوط والزوايا في ملعبنا",
+    "language": "ar",
+    "grade": 3,
+    "difficulty": "normal",
+    "sessionLength": 3,
+    "numerals": "arabic_indic"
+  },
+  "student": { "name": "البطل", "gender": null, "color": "#58CC02" },
+  "levels": [
+    { "index": 0, "isIntro": true, "title": "الإحماء", "teaching": [], "items": [] }
+  ],
+  "summaryHints": {
+    "concepts": ["الزاوية القائمة"],
+    "nextTopics": ["تحدي المهندس"]
+  },
+  "lesson": {
+    "id": "lines_angles_g3_s3",
+    "concept": "الزاوية القائمة",
+    "tutorial": false,
+    "stageOf": { "n": 3, "m": 4 },
+    "doneLevels": ["recognize", "understand"],
+    "levels": [
+      {
+        "level": "apply",
+        "stages": [
+          {
+            "type": "mcq_set",
+            "interaction": "mcq",
+            "items": [
+              {
+                "kind": "mcq",
+                "id": "g3s3_1",
+                "prompt": "اضغط الزاوية القائمة",
+                "options": ["أضيق من القائمة", "قائمة تمامًا", "أوسع من القائمة", "شبه مستقيمة"],
+                "optionGlyphs": [
+                  { "angleDeg": 50 },
+                  { "angleDeg": 90 },
+                  { "angleDeg": 140 },
+                  { "angleDeg": 170 }
+                ],
+                "correctIndex": 1,
+                "explanation": "الزاوية القائمة مثل ركن الملعب الذي أكملته — لا مائلة ولا واسعة.",
+                "hints": [
+                  "تذكّر الركن الذي بنيته في الملعب.",
+                  "مثل ركن الكتاب تمامًا."
+                ],
+                "concepts": ["الزاوية القائمة"],
+                "difficulty": 1
+              },
+              {
+                "kind": "mcq",
+                "id": "g3s3_2",
+                "prompt": "أيٌّ من هذه فيه زاوية قائمة؟",
+                "options": ["حافة الكرة", "ركن اللوح", "قوس المرمى", "خط المنتصف وحده"],
+                "correctIndex": 1,
+                "explanation": "ركن اللوح يلتقي فيه ضلعان بزاوية قائمة، أما الدائرة والخط الواحد فلا.",
+                "hints": [
+                  "ابحث عن ركن يلتقي فيه خطان مستقيمان.",
+                  "انظر حولك في الصف: اللوح، الكتاب، الباب."
+                ],
+                "concepts": ["الزاوية القائمة"],
+                "difficulty": 2
+              },
+              {
+                "kind": "mcq",
+                "id": "g3s3_3",
+                "prompt": "كم زاوية قائمة في المستطيل؟",
+                "options": ["ثلاث", "اثنتان", "أربع", "واحدة"],
+                "correctIndex": 2,
+                "explanation": "كل ركن من أركان المستطيل الأربعة زاوية قائمة.",
+                "hints": [
+                  "عُدَّ أركان منطقة الجزاء.",
+                  "كل ركن منها زاوية قائمة."
+                ],
+                "concepts": ["الزاوية القائمة"],
+                "difficulty": 3
+              }
+            ]
+          },
+          {
+            "type": "repair",
+            "prompt": "أوه! أحد الأركان مائل. أدر الخط المائل ليعود الركن قائمًا!",
+            "lines": [
+              { "x": 200, "y": 560, "angleDeg": 0, "length": 320, "locked": true },
+              { "x": 520, "y": 560, "angleDeg": 90, "length": 240, "locked": true },
+              { "x": 520, "y": 800, "angleDeg": 180, "length": 320, "locked": true },
+              { "x": 200, "y": 800, "angleDeg": 300, "length": 240 }
+            ],
+            "target": { "rect": { "x": 200, "y": 560, "w": 320, "h": 240 } },
+            "snap": { "angleDeg": 15, "grid": 40, "joinDistance": 28, "magnet": 36 },
+            "toleranceDeg": 4,
+            "guides": "none",
+            "success": "عاد الركن قائمًا! الملعب شبه جاهز."
+          }
+        ]
+      }
+    ]
+  }
+}
