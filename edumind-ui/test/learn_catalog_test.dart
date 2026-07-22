@@ -1,3 +1,4 @@
+import 'package:edumind/features/learn/interest_resolution.dart';
 import 'package:edumind/features/learn/learn_catalog.dart';
 import 'package:edumind/features/learn/learn_models.dart';
 import 'package:edumind/features/learn/widgets/learn_widget_registry.dart';
@@ -196,5 +197,86 @@ void main() {
     expect(challenge.widget!.params['unit'], 'م');
     final choice = exp.steps.firstWhere((s) => s.kind == LearnStepKind.choice);
     expect(choice.variants, isEmpty, reason: 'committed decisions are identical across lenses');
+  });
+
+  test('triangle experience ships all 7 interest variants that reword only the story', () async {
+    final catalogs = await LearnCatalogLoader.catalogs(language: 'ar', grade: 7);
+    final math = catalogs.firstWhere((c) => c.subject == 'الرياضيات');
+    final path = math.paths.firstWhere((p) => p.id == 'land_of_difference');
+    final exp = path.experiences.firstWhere((e) => e.id == 'triangle_garden');
+
+    final scene = exp.steps.firstWhere((s) => s.kind == LearnStepKind.scene);
+    final challenge = exp.steps.firstWhere((s) => s.kind == LearnStepKind.challenge);
+    final apply = exp.steps.firstWhere((s) => s.kind == LearnStepKind.apply);
+
+    for (final interest in kStudentInterestIds) {
+      // The narrative changes through the interest — for the CURRENT system,
+      // never the legacy lens…
+      expect(scene.interestVariants, contains(interest));
+      expect(challenge.interestVariants, contains(interest));
+      expect(apply.interestVariants, contains(interest));
+      expect(scene.titleFor(interest), isNot(scene.title));
+      expect(scene.bodyFor(interest), isNot(scene.body));
+      expect(challenge.bodyFor(interest), isNot(challenge.body));
+      expect(challenge.successTextFor(interest), isNot(challenge.successText));
+      expect(apply.titleFor(interest), isNot(apply.title));
+      expect(apply.bodyFor(interest), isNot(apply.body));
+      // …while an unknown/missing interest id falls back to the base story,
+      // exactly like an unknown legacy lens id does.
+      expect(scene.titleFor(null), scene.title);
+      expect(scene.titleFor('unknown_interest'), scene.title);
+    }
+
+    // Mechanics stay interest-independent by construction: the target and
+    // interaction are shared regardless of which interest resolved.
+    expect(challenge.widget!.params['targetArea'], 24);
+    expect(challenge.widget!.params['unit'], 'م');
+
+    // The abstract "choice" step's own narrative (body) is genuinely
+    // lens/interest-invariant — no natural connection was forced — but its
+    // NESTED choice DOES flavor the prompt for every interest, mirroring the
+    // legacy lens treatment of this same step.
+    final choiceStep = exp.steps.firstWhere((s) => s.kind == LearnStepKind.choice);
+    expect(choiceStep.interestVariants, isEmpty,
+        reason: 'this step\'s narrative has no natural per-interest connection — honest neutral');
+    for (final interest in kStudentInterestIds) {
+      expect(choiceStep.choice!.interestVariants, contains(interest));
+      expect(choiceStep.choice!.promptFor(interest), isNot(choiceStep.choice!.prompt));
+    }
+  });
+
+  test('equations experience ships all 7 interest variants that reword only the story', () async {
+    final catalogs = await LearnCatalogLoader.catalogs(language: 'ar', grade: 7);
+    final math = catalogs.firstWhere((c) => c.subject == 'الرياضيات');
+    final path = math.paths.firstWhere((p) => p.id == 'missing_number');
+    final exp = path.experiences.firstWhere((e) => e.id == 'equations');
+
+    final scene = exp.steps.firstWhere((s) => s.kind == LearnStepKind.scene);
+    final challenge = exp.steps.firstWhere((s) => s.kind == LearnStepKind.challenge);
+    final apply = exp.steps.firstWhere((s) => s.kind == LearnStepKind.apply);
+
+    for (final interest in kStudentInterestIds) {
+      expect(scene.interestVariants, contains(interest));
+      expect(challenge.interestVariants, contains(interest));
+      expect(apply.interestVariants, contains(interest));
+      expect(apply.choice!.interestVariants, contains(interest));
+      expect(scene.titleFor(interest), isNot(scene.title));
+      expect(scene.bodyFor(interest), isNot(scene.body));
+      expect(apply.choice!.promptFor(interest), isNot(apply.choice!.prompt));
+      // Correctness never moves with the interest: the correct slot is
+      // positional and a variant carries no correctIndex field to disagree.
+      expect(apply.choice!.optionsFor(interest).length, apply.choice!.options.length);
+    }
+
+    // The equations experience's own end-of-station takeaway is
+    // interest-aware too (whyItMattersNow / futureConnection), with the
+    // legacy valueNote kept as the honest neutral fallback.
+    expect(exp.valueNote, isNotEmpty);
+    for (final interest in kStudentInterestIds) {
+      final note = exp.interestValueNotes[interest];
+      expect(note, isNotNull, reason: 'missing interestValueNotes for $interest');
+      expect(note!.whyItMattersNow, isNotEmpty);
+      expect(note.futureConnection, isNotEmpty);
+    }
   });
 }

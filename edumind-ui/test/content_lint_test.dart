@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:edumind/features/learn/interest_resolution.dart';
 import 'package:edumind/features/learn/learn_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,10 +10,16 @@ import 'package:flutter_test/flutter_test.dart';
 ///  1. structural sanity (correctIndex in range, patterns aligned);
 ///  2. every referenced skill id is defined in the catalog's skills map;
 ///  3. a checkpoint only tests skills the path's steps actually evidence;
-///  4. hints and wrongFeedback never contain the correct option verbatim;
-///  5. a step that carries narrative lens variants and a choice must flavor
-///     the choice too (no flavor drop mid-step);
-///  6. choice variants keep the option count (the correct slot is positional).
+///  4. hints and wrongFeedback never contain the correct option verbatim
+///     (legacy lens variants AND the current interest variants);
+///  5. a step that carries narrative lens/interest variants and a choice
+///     must flavor the choice too (no flavor drop mid-step);
+///  6. lens/interest choice variants keep the option count (the correct
+///     slot is positional);
+///  7. interestVariants coverage is all-7-or-none — never a partial set a
+///     student could randomly miss;
+///  8. a shallow find-and-replace narrative variant (same sentence, one
+///     noun swapped) is rejected via a word-overlap heuristic.
 List<LearnCatalog> _loadCatalogs() {
   final dir = Directory('assets/learning');
   return dir
@@ -128,6 +135,8 @@ void main() {
             item.wrongFeedback,
             for (final v in item.variants.values)
               if (v.wrongFeedback != null) v.wrongFeedback!,
+            for (final v in item.interestVariants.values)
+              if (v.wrongFeedback != null) v.wrongFeedback!,
           ];
           for (final text in leaks) {
             expect(norm(text).contains(answer), isFalse,
@@ -153,6 +162,20 @@ void main() {
     }
   });
 
+  test('a step with interest variants flavors its choice too', () {
+    for (final c in catalogs) {
+      for (final r in _readySteps(c)) {
+        final step = r.step;
+        if (step.interestVariants.isEmpty || step.choice == null) continue;
+        for (final interest in step.interestVariants.keys) {
+          expect(step.choice!.interestVariants.containsKey(interest), isTrue,
+              reason:
+                  '${r.exp.id} «${step.title}»: story is flavored for "$interest" but its choice is not — flavor drops mid-step');
+        }
+      }
+    }
+  });
+
   test('choice variants keep the option count (correct slot is positional)', () {
     for (final c in catalogs) {
       for (final r in _readySteps(c)) {
@@ -169,6 +192,76 @@ void main() {
                       '${r.exp.id} «${item.prompt}» [${entry.key}]: variant option count differs');
             }
           }
+          for (final entry in item.interestVariants.entries) {
+            final options = entry.value.options;
+            if (options != null) {
+              expect(options.length, item.options.length,
+                  reason:
+                      '${r.exp.id} «${item.prompt}» [${entry.key}]: interest variant option count differs');
+            }
+          }
+        }
+      }
+    }
+  });
+
+  test('interestVariants coverage is all 7 ids or entirely absent — never partial', () {
+    final allInterests = kStudentInterestIds.toSet();
+    void checkCoverage(Map<String, dynamic> variants, String where) {
+      if (variants.isEmpty) return; // absent = honest neutral fallback, allowed
+      expect(variants.keys.toSet(), allInterests,
+          reason: '$where: interestVariants must cover all 7 STUDENT_INTERESTS ids or none at all — '
+              'found ${variants.keys.toSet()}');
+    }
+
+    for (final c in catalogs) {
+      for (final r in _readySteps(c)) {
+        checkCoverage(r.step.interestVariants, '${r.exp.id} «${r.step.title}» (step)');
+        final items = [
+          if (r.step.choice != null) r.step.choice!,
+          ...r.step.checkItems,
+        ];
+        for (final item in items) {
+          checkCoverage(item.interestVariants, '${r.exp.id} «${item.prompt}» (choice)');
+        }
+      }
+    }
+  });
+
+  test('shallow-variant heuristic: a narrative body must genuinely differ from the neutral base', () {
+    // Word-overlap (Jaccard) on the situation-bearing fields — scene sets the
+    // world, challenge/apply pose the concrete decision. explore/check and
+    // titles/prompts are deliberately excluded: they legitimately follow a
+    // short template (a single manipulative-label noun, or a parallel
+    // "قرارك الأخير: كم ال‍X؟" title) even when the story is genuinely
+    // reworked elsewhere in the same step — flagging those would punish good
+    // content, not shallow content.
+    const narrativeKinds = {LearnStepKind.scene, LearnStepKind.challenge, LearnStepKind.apply};
+    // Calibrated against this pilot's own authored content (max observed
+    // overlap ~0.56) with headroom before it starts rejecting genuine
+    // variants; a same-sentence one-noun swap scores 0.7-0.9+ in practice.
+    const maxOverlap = 0.65;
+
+    Set<String> tokens(String s) =>
+        RegExp(r'[\p{L}\p{N}]+', unicode: true).allMatches(s).map((m) => m.group(0)!).toSet();
+
+    double jaccard(String a, String b) {
+      final ta = tokens(a), tb = tokens(b);
+      if (ta.isEmpty || tb.isEmpty) return 0;
+      return ta.intersection(tb).length / ta.union(tb).length;
+    }
+
+    for (final c in catalogs) {
+      for (final r in _readySteps(c)) {
+        if (!narrativeKinds.contains(r.step.kind)) continue;
+        final baseBody = r.step.body;
+        for (final entry in r.step.interestVariants.entries) {
+          final variantBody = entry.value.body;
+          if (variantBody == null || baseBody.isEmpty) continue;
+          final overlap = jaccard(baseBody, variantBody);
+          expect(overlap, lessThan(maxOverlap),
+              reason: '${r.exp.id} «${r.step.title}» [${entry.key}]: variant body is ${(overlap * 100).round()}% '
+                  'word-identical to the neutral base — looks like a find-and-replace, not a reworked situation');
         }
       }
     }

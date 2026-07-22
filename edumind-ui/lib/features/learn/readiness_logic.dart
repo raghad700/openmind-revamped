@@ -75,7 +75,11 @@ class EvidenceEvent {
   /// manipulative | symbolic | verbal | table | graph | diagram
   final String representation;
 
-  /// The learner's context lens (market, water_energy, …) or null.
+  /// The learner's resolved personalization key at the time this evidence
+  /// was recorded: one of the 7 STUDENT_INTERESTS ids (current system), a
+  /// legacy learningContext lens id (market, water_energy, … — back-compat
+  /// fallback only), or null. Never a career, an inference, or any other
+  /// personal data — just the stable id that was actually shown.
   final String? context;
 
   /// learn_step | checkpoint | tutor_block | tool_verify

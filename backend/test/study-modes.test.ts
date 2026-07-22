@@ -58,6 +58,21 @@ describe('study modes (context.mode)', () => {
     ]);
   });
 
+  it('the prompt allows (never forces) interest flavoring across all five modes, not just lesson_discovery', async () => {
+    const { TUTOR_SYSTEM_PROMPT } = await import('../src/llm/prompts.js');
+    expect(TUTOR_SYSTEM_PROMPT).toContain('INTERESTS ACROSS MODES');
+    expect(TUTOR_SYSTEM_PROMPT).toContain('ANY of the five programs');
+    // Named as concrete non-lesson_discovery examples, so the rule isn't
+    // just a header with no teeth.
+    expect(TUTOR_SYSTEM_PROMPT).toContain('quick_review');
+    expect(TUTOR_SYSTEM_PROMPT).toContain('exam_prep');
+    expect(TUTOR_SYSTEM_PROMPT).toContain('solve_diagnose');
+    // The "never forced" half of the rule, and that it never overrides the
+    // program-discipline guardrails already asserted above.
+    expect(TUTOR_SYSTEM_PROMPT).toContain('never mandatory');
+    expect(TUTOR_SYSTEM_PROMPT).toContain('never costs a required input');
+  });
+
   it('rejects an unknown mode id (Arabic labels are not wire values)', async () => {
     const res = await ask({
       question: 'حضّرني لسبر',

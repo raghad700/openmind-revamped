@@ -176,6 +176,7 @@ class LearnExperience {
     required this.ready,
     required this.steps,
     this.valueNote,
+    this.interestValueNotes = const {},
   });
 
   final String id;
@@ -187,8 +188,17 @@ class LearnExperience {
   /// One authored sentence naming what this station's skill is good for in
   /// real life — shown at station completion alongside the stars earned, so
   /// the takeaway is the value added, not only a number. Optional; a station
-  /// without one simply shows the stars.
+  /// without one simply shows the stars. This is the NEUTRAL/legacy note:
+  /// shown whenever no interest-specific note resolves (no interests set, an
+  /// interest with no authored note, or a legacy-lens-only profile).
   final String? valueNote;
+
+  /// Interest id → the personalized end-of-experience takeaway (see
+  /// [LearnExperienceValueNote]). Keyed by the 7 STUDENT_INTERESTS ids —
+  /// never the legacy lens ids. A missing entry for the resolved interest
+  /// falls back to [valueNote], exactly like an unauthored interest variant
+  /// falls back to the base step text.
+  final Map<String, LearnExperienceValueNote> interestValueNotes;
 
   static LearnExperience fromMap(Map<String, dynamic> m) => LearnExperience(
         id: m['id'] as String,
@@ -199,6 +209,31 @@ class LearnExperience {
             .map((s) => LearnStep.fromMap(s as Map<String, dynamic>))
             .toList(),
         valueNote: m['valueNote'] as String?,
+        interestValueNotes: ((m['interestValueNotes'] as Map?) ?? const {}).map(
+          (k, v) => MapEntry(
+            k.toString(),
+            LearnExperienceValueNote.fromMap((v as Map).cast<String, dynamic>()),
+          ),
+        ),
+      );
+}
+
+/// The end-of-experience personalized takeaway for one interest: one concrete
+/// way the concept helps NOW, and one realistic way the skill can grow later
+/// (a broader skill, a project, further study, or work). Deliberately just
+/// two short strings — this is copy, never a task, a target, or anything
+/// that could affect grading. Written with possibility language ("قد يفيدك",
+/// "يمكن أن تستخدمه") — never phrased as if the interest determines the
+/// student's future.
+class LearnExperienceValueNote {
+  LearnExperienceValueNote({required this.whyItMattersNow, required this.futureConnection});
+
+  final String whyItMattersNow;
+  final String futureConnection;
+
+  static LearnExperienceValueNote fromMap(Map<String, dynamic> m) => LearnExperienceValueNote(
+        whyItMattersNow: m['whyItMattersNow'] as String? ?? '',
+        futureConnection: m['futureConnection'] as String? ?? '',
       );
 }
 
@@ -264,6 +299,7 @@ class LearnStep {
     this.checkItems = const [],
     this.successText,
     this.variants = const {},
+    this.interestVariants = const {},
     this.skills = const [],
     this.rep,
     this.hints = const [],
@@ -316,11 +352,23 @@ class LearnStep {
   /// already sees on screen.
   final List<String> hints;
 
-  /// Context-lens id → narrative overrides (see [LearnStepVariant]).
+  /// Legacy context-lens id → narrative overrides (see [LearnStepVariant]).
+  /// Kept for backward compatibility with profiles that still carry a
+  /// [Session.learningContext] and no [Session.interests] — never authored
+  /// for new content. See [interestVariants] for the current system.
   final Map<String, LearnStepVariant> variants;
 
+  /// STUDENT_INTERESTS id → narrative overrides (see [LearnStepVariant]).
+  /// This is the primary personalization system: keyed by the 7 stable
+  /// interest ids, never mapped to or combined with the legacy lens ids in
+  /// [variants].
+  final Map<String, LearnStepVariant> interestVariants;
+
+  /// Resolves one variant for the given key, checking the interest system
+  /// first and falling back to the legacy lens system — safe because the
+  /// two id spaces are disjoint, so a key only ever matches one of them.
   LearnStepVariant? _variant(String? context) =>
-      context == null ? null : variants[context];
+      context == null ? null : interestVariants[context] ?? variants[context];
 
   String titleFor(String? context) => _variant(context)?.title ?? title;
   String bodyFor(String? context) => _variant(context)?.body ?? body;
@@ -359,6 +407,12 @@ class LearnStep {
             .toList(),
         successText: m['successText'] as String?,
         variants: ((m['variants'] as Map?) ?? const {}).map(
+          (k, v) => MapEntry(
+            k.toString(),
+            LearnStepVariant.fromMap((v as Map).cast<String, dynamic>()),
+          ),
+        ),
+        interestVariants: ((m['interestVariants'] as Map?) ?? const {}).map(
           (k, v) => MapEntry(
             k.toString(),
             LearnStepVariant.fromMap((v as Map).cast<String, dynamic>()),
@@ -422,6 +476,7 @@ class LearnChoice {
     this.skills = const [],
     this.rep,
     this.variants = const {},
+    this.interestVariants = const {},
   });
 
   final String prompt;
@@ -430,11 +485,19 @@ class LearnChoice {
   final String correctFeedback;
   final String wrongFeedback;
 
-  /// Context-lens id → rewording (see [LearnChoiceVariant]).
+  /// Legacy context-lens id → rewording (see [LearnChoiceVariant]). Kept for
+  /// backward compatibility only — never authored for new content. See
+  /// [interestVariants] for the current system.
   final Map<String, LearnChoiceVariant> variants;
 
+  /// STUDENT_INTERESTS id → rewording (see [LearnChoiceVariant]). The
+  /// primary personalization system, keyed by the 7 stable interest ids.
+  final Map<String, LearnChoiceVariant> interestVariants;
+
+  /// Resolves one variant for the given key, interest system first, then the
+  /// legacy lens system — safe because the two id spaces are disjoint.
   LearnChoiceVariant? _variant(String? context) =>
-      context == null ? null : variants[context];
+      context == null ? null : interestVariants[context] ?? variants[context];
 
   String promptFor(String? context) => _variant(context)?.prompt ?? prompt;
 
@@ -489,6 +552,12 @@ class LearnChoice {
             ((m['skills'] as List?) ?? const []).map((s) => s as String).toList(),
         rep: m['rep'] as String?,
         variants: ((m['variants'] as Map?) ?? const {}).map(
+          (k, v) => MapEntry(
+            k.toString(),
+            LearnChoiceVariant.fromMap((v as Map).cast<String, dynamic>()),
+          ),
+        ),
+        interestVariants: ((m['interestVariants'] as Map?) ?? const {}).map(
           (k, v) => MapEntry(
             k.toString(),
             LearnChoiceVariant.fromMap((v as Map).cast<String, dynamic>()),

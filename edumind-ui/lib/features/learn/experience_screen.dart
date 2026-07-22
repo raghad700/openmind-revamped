@@ -7,6 +7,7 @@ import '../../core/palette.dart';
 import '../../core/session.dart';
 import '../tutor/ask_hudhud_sheet.dart';
 import '../tutor/tutor_models.dart';
+import 'interest_resolution.dart';
 import 'learn_evidence_store.dart';
 import 'learn_models.dart';
 import 'learn_progress_store.dart';
@@ -100,9 +101,15 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
   LearnStep get _current => widget.experience.steps[_step];
   Color get _accent => hexToColor(widget.path.colorHex);
 
-  /// The learner's context lens. Variants reword the story through it; the
-  /// widgets, choices, targets and completion rules never depend on it.
-  String? get _lens => Session.instance.learningContext;
+  /// The learner's resolved personalization key. Variants reword the story
+  /// through it; the widgets, choices, targets and completion rules never
+  /// depend on it. See [resolvePersonalizationKey] for the precedence rule
+  /// (interests win; legacy learningContext is a fallback only).
+  String? get _lens => resolvePersonalizationKey(
+        interests: Session.instance.interests,
+        legacyLearningContext: Session.instance.learningContext,
+        experienceId: widget.experience.id,
+      );
 
   /// A choice-bearing step is passable once RESOLVED — the right option was
   /// found, possibly after retries. Wrong picks never dead-end the learner:
@@ -1121,6 +1128,21 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
     );
   }
 
+  /// The end-of-experience takeaway lines to show, resolved through the same
+  /// personalization key as the steps ([_lens]). An interest with an
+  /// authored [LearnExperienceValueNote] wins (two lines: why it matters now,
+  /// where it can grow); otherwise the neutral/legacy [valueNote] (one line).
+  /// Null when neither is authored — the completion screen just shows stars.
+  List<String>? _resolvedValueNote() {
+    final key = _lens;
+    if (key != null) {
+      final note = widget.experience.interestValueNotes[key];
+      if (note != null) return [note.whyItMattersNow, note.futureConnection];
+    }
+    final legacy = widget.experience.valueNote;
+    return legacy == null ? null : [legacy];
+  }
+
   /// A calm, age-appropriate completion moment: no mascots, one next action.
   Widget _completion(AppLocalizations l) {
     return Column(
@@ -1173,8 +1195,10 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
           ],
         ),
         // The value added — what this station was actually good for — not
-        // only the score, per the authored valueNote (see learn_models.dart).
-        if (widget.experience.valueNote case final note?) ...[
+        // only the score. Personalized when the resolved interest has an
+        // authored note (see learn_models.dart LearnExperienceValueNote);
+        // otherwise the neutral/legacy valueNote, unchanged from before.
+        if (_resolvedValueNote() case final note?) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
@@ -1182,15 +1206,24 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
               color: MiddlePalette.softBlue,
               borderRadius: BorderRadius.circular(Palette.radiusCard),
             ),
-            child: Text(
-              note,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13.5,
-                height: 1.7,
-                fontWeight: FontWeight.w600,
-                color: MiddlePalette.blueInk,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final line in note)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      line,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        height: 1.7,
+                        fontWeight: FontWeight.w600,
+                        color: MiddlePalette.blueInk,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
