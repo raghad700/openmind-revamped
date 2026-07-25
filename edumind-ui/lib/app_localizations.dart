@@ -26,7 +26,8 @@ class AppLocalizations {
       'my_games': 'My games',
       'demo_games': 'Demo games',
       'demo_games_short': 'Demos',
-      'demo_games_sub': 'Bundled sample games you can play offline.',
+      'demo_games_sub': 'Every bundled game type + variant — play any one offline for debugging.',
+      'debug_tools': 'DEBUG TOOLS',
       'number_city': 'My Town',
       'number_city_shapes': 'Shapes District: Shapes Around Us',
       // Lesson Worlds
@@ -436,7 +437,8 @@ class AppLocalizations {
       'my_games': 'ألعابي',
       'demo_games': 'ألعاب تجريبية',
       'demo_games_short': 'تجريبي',
-      'demo_games_sub': 'ألعاب عينة مدمجة يمكنك لعبها دون اتصال.',
+      'demo_games_sub': 'كل أنواع الألعاب وتنويعاتها المدمجة — العب أيًّا منها دون اتصال للتصحيح.',
+      'debug_tools': 'أدوات التصحيح',
       'number_city': 'بلدتي',
       'number_city_shapes': 'حي الأشكال: الأشكال من حولنا',
       // عوالم الدروس

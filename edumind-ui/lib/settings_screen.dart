@@ -4,6 +4,7 @@ import 'app_localizations.dart';
 import 'core/api_client.dart';
 import 'core/app_theme.dart';
 import 'core/session.dart';
+import 'features/demos/demos_screen.dart';
 import 'languageswitchertile.dart';
 
 /// Settings: language selector, theme, and the backend server address (so a
@@ -114,6 +115,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 26),
+          Text(
+            l.translate('debug_tools'),
+            style: TextStyle(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.science_rounded, color: cs.primary),
+              title: Text(l.translate('demo_games')),
+              subtitle: Text(l.translate('demo_games_sub')),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute<void>(builder: (_) => const DemosScreen()),
+              ),
+            ),
+          ),
           const SizedBox(height: 26),
           Text(
             l.translate('privacy_note'),

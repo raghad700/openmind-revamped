@@ -42,6 +42,8 @@ class SpecAssembler {
       'goal_shootout_world_capitals.en.json',
       'draw_connect_plant_cell.en.json',
       'quest_path_water_cycle.ar.json',
+      'goal_shootout_arab_capitals.ar.json',
+      'draw_connect_plant_cell.ar.json',
       'scene_play_simple_machines.en.json',
       'scene_play_plants_nature.ar.json',
       // Mechanic variants — the same lessons staged as different games:
