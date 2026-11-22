@@ -1,161 +1,106 @@
-# OpenMind Game Studio
+# OpenMind — Interactive Learning Through Experience
 
-**A revamp of [EduMind Game Studio](https://github.com/YassoBases/edumind-game-studio).**
-Same north star — a kid types what they want to learn and is playing a custom,
-adaptive, bilingual game seconds later — rebuilt around a safer, cheaper, more
-consistent architecture, and **retargeted to elementary school (grades 1–6)**.
+OpenMind is a bilingual educational platform descended from [EduMind Game Studio](https://github.com/YassoBases/edumind-game-studio). It helps students build understanding through exploration, interaction, feedback, and applying what they learn. The interface supports English and Arabic with RTL layouts and bundles the Cairo variable font.
 
-Children describe what they want to learn, answer a few playful personalization
-questions, and within seconds are playing a custom Phaser 4 game themed to their
-preferences — one that **teaches before it quizzes**, adapts to their
-performance across levels, and ends with a structured learning summary. Games
-save locally and replay **offline, forever, for $0**. Full English + Arabic with
-RTL. Two animated buddies travel through every game: **Hudhud the hoopoe** (your
-exploration guide) and **Nahla the bee** (your rewards partner).
+- **Primary school (grades 1–6).** Students choose a lesson or enter a topic to create an AI-assisted Lesson World, then play through stages using five hand-built Phaser game families.
+- **Middle school (grades 7–9).** Students use Flutter lessons, interactive tools, and checkpoints. Bundled curriculum currently covers Grade 7 mathematics and social studies in Arabic. The English interface can show the Arabic content, and grades 8 and 9 have a coming-soon view.
+- **Student support.** Ask Hudhud offers conversational guidance and can use the current lesson as context. Nahla celebrates progress and rewards during games.
 
-**The architecture in one sentence:** the LLM never writes game code — the three
-games are hand-built, polished, parameterized Phaser 4.1 template shells, and the
-LLM generates only the content spec (JSON) that drives them. Demo specs and
-AI-generated specs are the *same format* injected into *identical shells*: if the
-demo plays perfectly, generated games render identically.
+The AI generates structured educational content such as teaching cards and practice items. The bundled Phaser runtime supplies the executable game code and uses the same content format for generated games and demos.
 
-```
-questionnaire → Normalizer (Haiku) → moderation → Spec gen (Haiku, Sonnet escalation)
-   → validators → fact-check judge (Haiku) → targeted repair → moderation
-   → GameSpec (Postgres) → injected into a template shell at serve time
-                              ↑
-              the same shells, bundled in the app, replay specs offline
-```
+## Why OpenMind Is a Revamp of EduMind
 
-> **Integrating from another app?** OpenMind is a documented HTTP API first, a
-> Flutter app second. Any client can drive the whole pipeline over REST. See
-> **[docs/API.md](docs/API.md)** for the full endpoint reference, auth, the
-> progressive-start flow, and copy-paste examples (curl / JS / Dart / Python).
+The comparison uses [EduMind's documented architecture](https://github.com/YassoBases/edumind-game-studio/blob/0349702/README.md) and OpenMind's current implementation.
 
----
+| Area | Original EduMind | Current OpenMind |
+| --- | --- | --- |
+| LLM output | Generated a structured spec and executable Phaser JavaScript for each game. | Generates structured JSON content for game specs, world plans and stages. The game pipeline has no JavaScript generation step. |
+| Mechanics and templates | Six pedagogical templates and four archetypes guided code generation. | Five hand-built Phaser families. Four support standalone generation, and all five support Lesson World stages. Number City supports stage generation. |
+| Validation and repair | Validated generated code, repaired failures, and ran a Playwright playability check in the generation pipeline. | Fresh game and stage specs use schema and semantic validation, a model-based fact-check, bounded item repair where applicable, and moderation. World plans have their own validation and moderation gates. Playwright runs separately against the bundled shell. |
+| Runtime consistency | Each generated script supplied part of the runtime behavior, so two generations could behave differently. | Demos and generated specs use the same versioned shell and mechanics. Content, variants, and game outcomes can still differ. |
+| AI model choices | Claude Sonnet 4.6 for specs and code, with Haiku 4.5 for normalization, repair, and feedback. | Configurable defaults are Haiku 4.5 and Sonnet 4.6 for escalation. Normalization, fact-checking, and tutoring use the default model. Keyless development uses Mock. |
+| Generation cost and latency | Included a separate code-generation call and browser check. The historical documentation reports estimates and cache-dependent timings. | Eliminates those per-generation steps. The figures below describe historical measurements, live estimates, and targets. |
+| Security implications | The player executed generated JavaScript after validation and repair. | The application is designed to play validated data in bundled code. JSON is still embedded in HTML, so correct escaping is part of the security boundary. |
+| Target learners | Grades 7–12. | Lesson Worlds for grades 1–6 and a Flutter learning area for grades 7–9, with bundled curriculum currently limited to Grade 7 on the middle-school side. |
+| Offline replay | Stored saved game HTML for offline replay where local storage was available. | Stores game specs and replays them with the bundled shell. Cached playback is separate from pending progress uploads, which have no automatic retry in the primary app. |
+| Educational interaction | Adaptive gameplay guided by pedagogical templates, with a structured learning summary. | Staged Lesson Worlds combine teaching, practice, feedback, and application. Middle-school lessons use Flutter interactives, readiness checkpoints, and contextual tutoring. |
 
-## Current product state
+Standalone generation normally attempts the default model twice and then the escalation model. High complexity, low normalization confidence, or Arabic with `ESCALATE_ARABIC=true` can trigger direct escalation. World planning uses complexity and confidence for direct escalation and otherwise tries the default model followed by escalation. Stage generation uses the default model or content supplied by the world planner first, then can retry with the escalation model. [Standalone pipeline](backend/src/pipeline/generator.ts) · [World routing](backend/src/routes/worlds.ts) · [World and stage pipeline](backend/src/pipeline/worlds.ts)
 
-The repo now includes the full learner-facing UI in **`edumind-ui/`**. This is
-the current product app: onboarding, profile setup, language switching,
-settings, mascots, the home path, bundled demo games, AI generation, web/native
-playback, and local save/replay.
+The backend HTML assembler escapes the JSON for its script slot. Flutter's assembler currently leaves literal less-than characters unchanged, so the data-only design should not be read as a guarantee that model output cannot enter an executable context. [Backend assembler](backend/src/pipeline/assembler.ts) · [Flutter assembler](edumind-ui/lib/core/spec_assembler.dart)
 
-What is working in the M5b build:
+## Stack and repository map
 
-- Full English + Arabic pass across the primary screens, including RTL layout.
-- Onboarding registers a local session and syncs language/profile state into
-  the app.
-- The home screen is backed by `GameStore`, so generated games show up after
-  play and still appear after a reload.
-- Demo Games opens the original golden specs bundled with the app and plays
-  them through the same Phaser shells used by generated games.
-- The composer can generate a new game through the backend and launch it in the
-  player.
-- Web saves use IndexedDB; native saves use Drift/SQLite.
-- Returning students pass through a one-tap session-restore check
-  (`WelcomeBackScreen`) that verifies the saved device token against
-  `GET /students/me` before entering the app, instead of silently trusting a
-  possibly-stale token; a failed check clears only the dead credentials and
-  falls back to onboarding, never touching local progress.
-- The tutor's "Ask" surface is branded **Ask Hudhud**: a shared contextual
-  bottom sheet (`openAskHudhud`) that any stuck-learner affordance — inside a
-  lesson step, on a path's station list — can open, seeded with wherever the
-  learner actually is. Always the same `TutorChat`, never a second chat
-  system.
-- The middle-school learn platform now spans two subjects (Grade 7 math +
-  social studies) and six interactive tool types — the original
-  `number_line`/`order_sequence`/`sort_buckets`/`match_pairs` plus new
-  `balance_scale` (adjust-and-observe linear equations) and `timeline`
-  (chronological ordering) — all graded through one descriptor-driven path
-  shared by lesson widgets and Ask Hudhud blocks alike.
-- A per-skill readiness/evidence system now sits underneath both surfaces: an
-  append-only evidence log (local-first on the client, synced to the backend)
-  drives readiness-based checkpoints between skill clusters and diagnoses
-  wrong answers into specific error patterns, so both a support action and
-  Hudhud's hints can target the actual misconception instead of a generic
-  retry.
-- `flutter_module/` remains as the engine/reference Flutter app, while
-  `edumind-ui/` is the polished UI shell being carried forward.
+| Location | Responsibility |
+| --- | --- |
+| [edumind-ui/](edumind-ui/) | Current Flutter app, with Dart `^3.8.1`, Material, Provider, SharedPreferences and an HTTP client. Start at `lib/main.dart` and `lib/edumind_root.dart`. The web player embeds the shell in an iframe. Native playback uses `webview_flutter`. |
+| [backend/](backend/) | Node.js 22+, TypeScript, Fastify 5, Pino, Zod 4 and Swagger UI. `src/app.ts` registers students, worlds, games, tutor, learning progress/evidence, tools, review, stats, curriculum and placement routes. Prisma 6 supports PostgreSQL 16, with in-memory storage for development. |
+| [backend/src/llm/](backend/src/llm/) and [backend/src/pipeline/](backend/src/pipeline/) | Anthropic structured output and prompt caching. Defaults are Claude Haiku 4.5 and Sonnet 4.6 for generation escalation. OpenAI omni-moderation is the registered moderation provider. An optional image endpoint supports standalone game thumbnails, with SVG as the default. |
+| [shared/](shared/) | Zod contracts, structured-output schemas, semantic validators and assembly for game and world specs. |
+| [shells/](shells/) and [samples/](samples/) | Phaser 4.1.0 games and shared runtime, golden JSON specs, browser preview and Playwright tests. The build emits one `edumind.html` and a manifest, and copies assets into the backend and both Flutter apps. |
+| [flutter_module/](flutter_module/) | Separate reference Flutter app with the standalone game composer, player, local library and review flow. Its navigation and feature coverage differ from the learner app in `edumind-ui/`. |
+| [scripts/](scripts/) | Optional asset tooling. See the [Kenney asset notes](scripts/KENNEY_README.md). |
+| [docs/](docs/) and [backend/prisma/](backend/prisma/) | Integration guides, Prisma schema and migration history. Root Composer files declare a Swagger dependency. The documented runtime uses the Node workspaces and Flutter. |
 
----
+### Game templates
 
-## Why this is a revamp (vs. the original EduMind)
+| Template | Mechanics and generation coverage |
+| --- | --- |
+| Quest Path (`quest_path`) | Path-based questions with bridge and lantern variants. Bundled demos, standalone generation and world stages. |
+| Goal Shootout (`goal_shootout`) | Football-themed questions with draw-pass and keeper variants. Bundled demos, standalone generation and world stages. |
+| Draw & Connect (`draw_connect`) | Diagram connections and classification boards. Bundled demos, standalone generation and world stages. |
+| My Town / Number City (`number_city`) | Tap, collect, sequence and build activities. Bundled demos and world-stage generation. |
+| Scene Play / Wonder Lab (`scene_play`) | Rotation, cause and effect, find and fix, and creative interactions. Bundled demos, standalone generation and world stages. |
 
-The original [EduMind Game Studio](https://github.com/YassoBases/edumind-game-studio)
-was a genuinely impressive system: it had the LLM **write the inner Phaser script
-for each game**, backed by 18 validators, a repair loop, and a Playwright
-"does-it-actually-boot" check to catch the variance. It worked — but generating
-runnable game code per request is expensive, slow, variable, and means
-model-written code executes inside a kids' app. OpenMind keeps everything that
-was good about EduMind and changes the one thing that made it expensive and
-risky.
+See the [generation allowlists and mechanics](shared/src/constants.ts) and [game implementations](shells/src/games/).
 
-| | **EduMind (original)** | **OpenMind (this repo)** |
-|---|---|---|
-| **What the LLM produces** | The **game code** (Sonnet writes a Phaser script per game) | Only a **content spec** (JSON). No model-written code ever executes. |
-| **Game catalog** | 6 pedagogical templates + 4 archetypes (10 mechanics) the model learns from | **3 hand-built, deeply-polished template shells** (Quest Path, Goal Shootout, Draw & Connect) |
-| **Consistency** | Two generations of the "same" game could look/behave differently | **Identical by construction** — same shell every time; variance is impossible |
-| **Validation** | 18 validators + repair + Playwright boot **per generation** (runtime) | Validators became a **CI suite run once per shell change**; runtime only validates spec *semantics* + a fact-check gate |
-| **Default model** | Sonnet 4.6 for specs **and** code | **Haiku 4.5 by default**, Sonnet 4.6 only on escalation (target ≤25%) |
-| **Cost / game** | Higher (code-gen is the expensive call) | **Target ≤ $0.05**; cached topics, replays, reviews, demos are **$0** |
-| **Latency** | ~15–90 s depending on cache | 10–45 s generation, **~0 perceived** (play the tutorial while it generates) |
-| **Security surface** | Generated JS runs in the WebView | **Zero** model-authored code in the app — real attack-surface reduction |
-| **Audience** | Grades 7–12 | **Elementary school, grades 1–6** — content prompts tuned for young children |
-| **Characters** | Single mascot | **Two animated buddies** with distinct roles: Hudhud (guide) + Nahla (rewards) |
-| **Offline replay** | — | Saved games replay with **zero network** (bundled shell + local spec, KBs not MBs) |
-| **Stack** | Node 24, Sonnet+Haiku, Postgres, Flutter | Node 22+, Haiku+Sonnet, Postgres **or in-memory fallback**, Flutter; boots with **zero config** |
+## Architecture and data flow
 
-**The payoff in one line:** consistency becomes a *build property* instead of a
-runtime gamble, per-game cost drops to a fraction, replays are free, and **no
-model-written code ever runs inside a child's app.**
+1. **Identity.** Onboarding creates a nickname-based student profile through `POST /api/v1/students`. Flutter saves the device bearer token and uses `GET /api/v1/students/me` to check the session and refresh grade and stage. Registration and profile changes have retry paths for offline use. The API stores token hashes. Live generation and moderation can send learner questions or learning context to their providers. Treat device tokens as credentials.
+2. **Primary learning.** Home opens the lesson picker, which sends a catalog lesson or free-text topic to `POST /api/v1/worlds`. The backend plans the world and returns its map and first stage spec. The app loads later stages from its cache or the stage API. It can request generation and poll for a spec when one is pending. On completion, the player returns a summary through the Phaser bridge. The Flutter map records progress locally and attempts to post the summary to the stage session API. A failed upload can leave a pending summary on the device. See the implementation status below for offline upload coverage.
+3. **Generation and playback.** The backend selects live or mock providers. Standalone generation normalizes the request, moderates input, generates content, validates the spec, fact-checks and repairs items, and moderates output. World planning and stage generation use their own structured schemas and validation gates. Flutter injects the resulting spec into its bundled shell and receives ready, progress and completion events through a JavaScript bridge. API clients can also request assembled HTML for standalone games. See the [REST API guide](docs/API.md) and local Swagger UI for integration details.
+4. **Middle-school learning.** Start and Journey open Flutter lesson experiences from bundled catalog JSON. The lesson player renders the steps and interactive widgets in Flutter. The app records local progress and evidence, synchronizes them through `/api/v1/learn/progress` and `/api/v1/learn/evidence`, and uses readiness to select checkpoints and support. Balance-scale and timeline widgets can call `POST /api/v1/tools/:toolId/verify`. The lesson-tool endpoint grades the supplied puzzle and answer, while the tutor can check a submitted answer against its own previously issued puzzle.
+5. **Storage.** Flutter uses SharedPreferences for session, world metadata and learning state, and IndexedDB on web or Drift/SQLite on native for saved specs. Cached stages can replay with the bundled shell. Server stores include students, game and world records, sessions, tutor history, learning progress/evidence and spec caches. Without a usable PostgreSQL connection, server data and tokens are lost when the process restarts.
 
-> Lineage note: this codebase descends from the same lineage of iterations the
-> original repo documents (its `WHATS_NEW*.md` history). OpenMind is the "v4"
-> architectural turn — the LLM stops writing code — plus the elementary-school
-> and two-character product pivot.
+## Implementation status
 
----
+| Status | Scope |
+| --- | --- |
+| **Verified Working** | The Node build, backend typecheck, Node and Flutter tests, and keyless HTTP smoke checks listed below. This includes a Flutter web smoke test of session restore and Ask Hudhud, mock world API coverage and a PostgreSQL profile persistence check. |
+| **Implemented but Not Verified** | End-to-end Flutter onboarding, Lesson Worlds, stage caching and replay, the Grade 7 Journey and the contextual lesson-help sheet. The main tutor tab was exercised in the web smoke test. The live Anthropic, OpenAI moderation and optional image integrations have code paths. See verification below for runtime coverage. |
+| **Implemented but Not Verified** | Standalone game creation and review have registered endpoints and call sites in the reference Flutter app. The current app's primary creation entry point uses Lesson Worlds. |
+| **Not connected in the primary app** | Placement and curriculum APIs are registered in Fastify. The Flutter app has no placement-test UI or caller, and Journey uses its bundled catalog. Stored stage summaries have no automatic upload retry. |
+| **Partially Implemented** | Primary navigation covers grades 1–6, with bundled math and science material for grades 1–3. The middle-school shell covers grades 7–9. The Grade 7 math and social studies catalogs are Arabic assets, with an Arabic content fallback for English UI. Grades 8 and 9 show a coming-soon view. |
+| **Mock/Fallback** | Keyless game and world generation uses fixtures and simulated latency. The mock tutor uses scripted and keyword-based responses, including study-mode branches and tool selection. Missing or unreachable PostgreSQL selects the in-memory store. Missing thumbnail integration selects SVG. |
+| **Planned** | Full AI-generated background sets are design work. The interactive platform guide also proposes more tools and curriculum coverage. See [DECISIONS.md](DECISIONS.md) and the [interactive platform roadmap](docs/INTERACTIVE_PLATFORM.md). |
+| **Unverified with live providers** | Educational quality, latency and actual AI cost across both languages and learning flows. [PERF.md](PERF.md) distinguishes historical measurements from estimates. |
 
-## What's inside
+## Ask Hudhud
 
-| Surface | Stack |
-|---|---|
-| **Shared contract** | Zod 4 `GameSpec` schema + semantic validators + structured-output JSON schemas, shared by backend, shells and tests |
-| **Game shells** | Phaser **4.1.0 "Salusa"** (no `setTintFill`, Filter system, no v3 pipelines), inlined into single-file HTML; `EduCore` / `GameFeel` / `Mascot` runtime libs |
-| **Backend** | Node 22+, Fastify 5, TypeScript 5 strict, Zod 4, Prisma 6 + Postgres 16 (or in-memory fallback), OpenAPI 3.1 + Swagger UI, pino |
-| **Generation** | Claude **Haiku 4.5** default + **Sonnet 4.6** escalation, structured outputs + prompt caching; OpenAI omni-moderation; optional Flux Schnell thumbnails |
-| **Primary UI** | `edumind-ui/`: Flutter 3.x / Dart 3.x, bilingual onboarding/home/settings/composer/player, `webview_flutter` (native) + iframe `srcdoc` (web), Drift 2.33 (native) / IndexedDB (web), google_fonts, flutter_animate |
-| **Reference app** | `flutter_module/`: the earlier engine-oriented Flutter port kept for parity and shell/player verification |
+- **How it opens.** Both grade-based shells navigate to `AskScreen`, and middle-school Start and Journey shortcuts can select that tab. An experience step's help button opens the contextual `openAskHudhud` sheet. Both surfaces use `TutorChat`. The sheet passes the subject, path, current step, widget state, recent attempts, skills and readiness, and offers quick actions that submit real tutor questions. The chat tab remembers its active conversation and can restore it.
+- **What runs.** With a registered session, typing a question or choosing a starter sends an authenticated JSON request to `POST /api/v1/tutor/messages`. The backend rate-limits and moderates the question, retrieves conversation context, calls the configured provider and returns a structured reply. The client can render explanations, follow-ups and approved interactive blocks. The backend validates tool payloads, grades supported answers against the issued instance, stores conversation turns and can record verified skill evidence. History is read from `GET /api/v1/tutor/conversations/:id`.
+- **Which tools exist.** The tutor has six registered tools: `number_line`, `order_sequence`, `sort_buckets`, `match_pairs`, `balance_scale` and `timeline`. The lesson widget registry has `triangle_area`, `balance_scale` and `timeline`. Balance scale and timeline share logic across the two surfaces. If the tutor identifies a missing mechanic, the backend can log the suggestion and return a conversational fallback. The app has no runtime mechanism to generate or install new widgets.
+- **Which study modes exist.** The middle-school tutor tab offers exam preparation, lesson discovery, backlog planning, solve diagnosis and quick review. The selection sends `context.mode` through the regular conversation. Mode-specific Claude prompts and mock branches are implemented. The modes operate as conversations. The current code has no separate scheduling or task-tracking workflow for them.
+- **What requires a backend.** An unregistered learner gets a registration/retry prompt. Both the live and mock tutor require the HTTP API. The keyless backend smoke verifies a mock clarification turn and restored history. The primary web smoke also verified the main-tab exam-prep request. Live model pedagogy and lesson-sheet behavior in a running app remain unverified.
 
----
+The wired entry points are [the root navigation](edumind-ui/lib/edumind_root.dart) and [the lesson experience](edumind-ui/lib/features/learn/experience_screen.dart). See the [tutor route](backend/src/routes/tutor.ts) and [Ask Hudhud interactive tutoring](docs/ASK_HUDHUD_INTERACTIVE.md) for the contract. The guide’s future-study-mode section predates the current study-mode implementation.
 
-## Fresh clone runbook
+## Local setup
 
-Yes: on another PC, the repo should reach this same stage from a clean clone as
-long as the machine has the normal toolchain installed. Clone does not bring
-`node_modules`, Flutter caches, browser storage, or secrets with it, so you still
-run the setup commands below.
-
-Prerequisites:
-
-- Git
-- Node.js 22+
-- Flutter SDK with a Dart version accepted by the app `pubspec.yaml`
-- Chrome or another Flutter-supported web/device target
-- Optional for live AI: `ANTHROPIC_API_KEY` in `.env`
-- Optional for persistent backend storage: Postgres plus `DATABASE_URL`
+Install Git, Node.js 22+ with npm, and a Flutter SDK whose Dart version satisfies the app's `^3.8.1` constraint. Use Chrome for local Flutter web development. For phone builds, install the relevant Flutter platform tooling and check it with `flutter doctor`. Docker Compose is optional for PostgreSQL.
 
 From a fresh clone:
 
 ```bash
-git clone https://github.com/YassoBases/openmind-revamped.git
+git clone https://github.com/raghad700/openmind-revamped.git
 cd openmind-revamped
-
-npm install
+npm ci
 npm run build
-npm run dev:backend      # http://127.0.0.1:8080
+npm -w backend run prisma:generate
+npm run dev:backend
 ```
+
+The root build compiles shared TypeScript and packages game assets. It can refresh tracked Flutter manifests. The backend listens on port 8080 by default. Check `http://localhost:8080/api/v1/health` and open Swagger UI at `http://localhost:8080/api/docs`. Use keyless mock mode and memory storage for your first run.
 
 In a second terminal:
 
@@ -165,373 +110,97 @@ flutter pub get
 flutter run -d chrome
 ```
 
-For a release-style web build:
+For a release-style web preview:
+
+```bash
+cd edumind-ui
+flutter build web --no-web-resources-cdn
+node tool/serve.mjs
+```
+
+Open `http://localhost:5000`. The build flag uses the bundled Flutter web renderer assets. Set the preview server's `PORT` in its own terminal if needed. The Flutter API base defaults to `http://localhost:8080`. On a physical phone or emulator, pass a host reachable from that device using `--dart-define=API_BASE_URL=...` or update the API URL in Settings. Run `flutter devices` to select a supported target.
+
+For local persistence, run `docker compose up -d db` from the root and configure `DATABASE_URL` and `DIRECT_URL` for a new, disposable database. The checked-in migration chain currently fails on a fresh database. For local feature testing, you can initialize a separate empty database from the current Prisma schema with `npm -w backend exec -- prisma db push --skip-generate`, then check the backend startup log for a PostgreSQL connection. Use memory mode or a new disposable database if you already attempted the failing migrations.
+
+`npm -w backend run prisma:deploy` is the repository's migration command. The [migration guide](backend/prisma/MIGRATIONS.md) describes an earlier migration history. Existing databases require a review of their applied migration records before any schema change.
+
+## GitHub Codespaces
+
+The repository has no checked-in dev container. Create a Codespace on your development branch and install Node.js 22+ and a compatible Flutter SDK if the default image lacks them. Run the root setup and start the backend. Forward port 8080 and copy its HTTPS forwarded URL. In a second terminal, build and serve the app:
 
 ```bash
 cd edumind-ui
 flutter pub get
-$env:PORT="53211"; node tool/serve.mjs   # Windows PowerShell
-# or: set PORT=53211 && node tool/serve.mjs   # Windows cmd
-# or: PORT=53211 node tool/serve
-
-
-
-.mjs          # macOS/Linux
+flutter build web --no-web-resources-cdn --dart-define=API_BASE_URL=https://YOUR-8080-FORWARDED-HOST
+node tool/serve.mjs
 ```
 
-Without API keys the backend intentionally runs in mock LLM mode, so demo games
-and the generate-to-play flow still work using golden specs with simulated
-latency. With `ANTHROPIC_API_KEY`, the same app path uses live generation.
+Forward port 5000 and open the UI URL. Use the Ports panel to check access to the API URL from the same browser. If restricting CORS, add the exact forwarded UI origin to `CORS_ORIGINS`. Codespaces port authentication can affect cross-origin requests, so check the API health URL and the browser network panel before debugging registration. Keep development ports private when possible. To preview the standalone shells, run `npm run preview` from the root and forward port 8765. This Codespaces procedure was derived from repository configuration.
 
-Local saved games are per browser/device. A different PC will have the same
-bundled demos and code, but not your old browser's IndexedDB saves unless you
-export/migrate that storage separately.
+## Configuration
 
----
+No credentials are required for keyless development. The backend reads process variables and uses dotenv from its working directory. With npm workspace commands, use `backend/.env` or export variables in the shell. The root [.env.example](.env.example) is a reference. Store Codespaces credentials as secrets and keep local credential files out of Git.
 
-## Zero-key shell smoke test
-
-No API keys, no database, no account — the games must stand on their own:
-
-```bash
-npm install
-npm run build          # builds the shared lib + the three shells
-npm run preview        # → http://localhost:8765
-```
-
-Open the harness, click a demo flutter build web
-spec (Water Cycle quest / World Capitals shootout
-/ Plant Cell draw-board / Arabic quest), and play end to end: tutorial level,
-teach cards, questions with two-stage hints, explanations on right *and* wrong
-answers, summary screen. The harness also simulates progressive start (boot with
-a stub, deliver the spec N seconds later) and generation failure (mascot
-apology + retry).
-
-Same thing inside the primary app, fully offline: `cd edumind-ui && flutter run
--d chrome` -> complete onboarding -> **Demo Games** from the home header or
-Settings.
-
----
-
-## Backend
-
-```bash
-cd backend
-npm run dev            # http://0.0.0.0:8080  — LAN-reachable by default
-```
-
-Boots with **zero configuration**: no `DATABASE_URL` → in-memory store (loudly
-logged, data dies on restart); no `ANTHROPIC_API_KEY` → MOCK_LLM mode (golden
-specs with simulated latency). Add keys in `.env` (see `.env.example`) to go
-live:
-
-| Env | Effect |
+| Use | Names and behavior |
 | --- | --- |
-| `ANTHROPIC_API_KEY` | live generation — `claude-haiku-4-5` default, `claude-sonnet-4-6` escalation |
-| `OPENAI_API_KEY` | content moderation (omni-moderation-latest); skipped with a warning if unset |
-| `DATABASE_URL` / `DIRECT_URL` | Postgres 16 (Neon: pooled + direct URLs; local: `docker compose up -d`) then `npm run prisma:migrate` (fresh DB) — see [`backend/prisma/MIGRATIONS.md`](backend/prisma/MIGRATIONS.md) before running against an existing/production database |
-| `IMAGE_PROVIDER_API_KEY` + `IMAGE_PROVIDER_URL` | Tier-2 AI thumbnails (Flux Schnell); otherwise programmatic SVG thumbnails |
+| HTTP and logging | `HOST`, `PORT`, `CORS_ORIGINS`, `LOG_LEVEL`, `NODE_ENV` |
+| PostgreSQL | `DATABASE_URL`, `DIRECT_URL`. Prisma uses the direct connection for migration workflows. |
+| Live generation and tutor | `ANTHROPIC_API_KEY`, `MODEL_DEFAULT`, `MODEL_ESCALATION`, `PROMPT_CACHE_TTL`, `ESCALATE_ARABIC` |
+| Mock development | `MOCK_LLM`, `MOCK_LATENCY_MS`. The backend selects mock automatically when the Anthropic key is absent. |
+| Moderation | `MODERATION_API_KEY` or `OPENAI_API_KEY`, `MODERATION_PROVIDER`, `MODERATION_STRICT`, `MODERATION_DISABLED`. Live startup requires a moderation credential unless the development bypass is explicitly enabled. Strict moderation fails closed by default in live mode. |
+| Optional AI thumbnails | `IMAGE_PROVIDER_API_KEY`, `IMAGE_PROVIDER_URL` |
+| Quotas | `MAX_GENERATIONS_PER_HOUR`, `MAX_WORLDS_PER_HOUR`, `MAX_TUTOR_MESSAGES_PER_HOUR`, `MAX_TOOL_VERIFY_PER_MINUTE` |
+| Preview and Flutter build | `PREVIEW_PORT` for shell preview, `PORT` for the Flutter static server, and Flutter define `API_BASE_URL`. The reference app uses `SHOW_DEMOS`. The current app declares the same flag and opens its Settings gallery unconditionally. |
 
-- **API docs:** Swagger UI at `http://localhost:8080/api/docs` (OpenAPI 3.1
-  generated from the Zod schemas). Full written reference: **[docs/API.md](docs/API.md)**.
-- **Health:** `GET /api/v1/health` — version, uptime, db status, and live
-  pipeline metrics (per-stage latency, escalation rate, cache hit rates,
-  estimated cost per game).
-- **Auth:** `POST /api/v1/students` returns `{ studentId, token }`; everything
-  else takes `Authorization: Bearer <token>`. Nickname-only accounts — there is
-  no password or email, so a client re-verifies a saved token with
-  `GET /students/me` rather than doing a real login (see
-  [Interactive tools & the readiness system](#interactive-tools--the-readiness-system)
-  below for how the Flutter client uses this).
-- **Tools & evidence:** `POST /api/v1/tools/:toolId/verify` grades an
-  interactive-tool submission server-side (rate-limited per student per
-  minute via `MAX_TOOL_VERIFY_PER_MINUTE`, default 120) and optionally records
-  a per-skill evidence row; `GET`/`POST /api/v1/learn/evidence` sync that
-  append-only evidence log.
-- Seed a demo student: `npm run seed` (prints a usable token).
+## Preview and tests
 
----
-
-## Interactive tools & the readiness system
-
-Six descriptor-driven manipulatives — `number_line`, `order_sequence`,
-`sort_buckets`, `match_pairs`, and the newer `balance_scale` (learner adjusts
-an unknown against a live balance beam — Grade 7's "an equation stays equal"
-concept as a consequence, not a checked placement) and `timeline` (order 3–8
-events chronologically; shares `order_sequence`'s permutation grading). Each
-tool is one `ToolDescriptor` (`backend/src/tutor/tools/`) declaring its data
-shape, `validate`, `verifyResult`, and an optional `diagnoseError` — the same
-descriptor renders as a lesson-catalog widget
-(`edumind-ui/lib/features/learn/widgets/`) *and* an Ask Hudhud tutor block
-(`.../features/tutor/blocks/`), backed by shared core logic in
-`edumind-ui/lib/shared/interactive_tools/`, so both surfaces share one
-grading truth instead of two. Lesson-widget submissions can now also be
-verified server-side via `POST /api/v1/tools/:toolId/verify` (previously
-100% client-graded) — documented as a weaker trust model than the tutor path
-in `backend/src/routes/tools.ts`, since the client supplies both the puzzle
-instance and the answer.
-
-Underneath both surfaces, an append-only per-skill evidence log
-(`LearnEvidence` in Postgres, `learn_evidence_store.dart` local-first on the
-client) feeds a pure readiness function (`readiness_logic.dart` /
-`backend/src/learning/evidence.ts`, kept in sync) scored per skill ×
-representation × context. A non-correct, server-verified attempt is
-diagnosed into one of six error patterns (concept misunderstanding,
-representation confusion, wrong unit, calculation slip, procedural error,
-transfer difficulty), each mapped to a specific support action
-(`backend/src/learning/support.ts` / `support_actions.dart`). `checkpoint_logic.dart`
-uses current readiness to assemble a drill/reuse/transfer checkpoint once a
-path crosses a cluster of skills, and the tutor's `TutorContext` now carries
-`skills`/`readiness` so Hudhud's hints target the weakest prerequisite and
-respond to the diagnosed pattern instead of a generic retry.
-
----
-
-## Primary Flutter UI
+Run these from the repository root after setup. The checkout includes local test scripts and no checked-in GitHub Actions workflow.
 
 ```bash
-cd edumind-ui
-flutter pub get
-flutter run -d chrome        # web
-flutter run                  # connected Android/iOS device
+npm run preview
+npm test
+npm -w backend run typecheck
+npx playwright install chromium
+npm run test:e2e
 ```
 
-Onboarding (Hudhud-guided: nickname, grade 1-6, language, profile preferences,
-theme) -> dashboard/home path (XP, streaks, saved games, Demo Games) -> composer
-(subject, free-text topic, game type, theme, length, difficulty) -> player. The
-app can launch bundled demos without the backend, or generate through the
-backend and then save the completed game locally for offline replay. Returning
-students with a saved device token see a one-tap `WelcomeBackScreen` session
-check first; anywhere a learner gets stuck, **Ask Hudhud** opens the same
-contextual tutor sheet, seeded with the current step.
+The shell preview at `http://localhost:8765` exercises golden examples and offers progressive-start and generation-failure simulations. In Flutter, open **Settings → Demo Games** on the primary navigation to try bundled specs. The gallery is in the Debug Tools section of Settings.
 
-`flutter_module/` is still useful for engine parity checks and lower-level
-player work, but `edumind-ui/` is the current learner-facing app.
+For Flutter checks, run `flutter pub get`, `flutter test`, `flutter analyze` and `flutter build web` in `edumind-ui/`. Run the same checks in `flutter_module/` when working on reference-app or shell parity. The optional `npm run seed` command creates a demo student and prints a device token. Use it only against a disposable development store.
 
----
+### Developer entry points
 
-## Connect your phone (the physical-phone test)
+| Specialty | Start here |
+| --- | --- |
+| Frontend | Follow the [root navigation](edumind-ui/lib/edumind_root.dart) into worlds, Journey, tutor and player. |
+| Backend | Start with [route registration](backend/src/app.ts), then inspect the specific handler and store adapter. |
+| AI | Trace the [content provider](backend/src/pipeline/provider.ts), [prompts](backend/src/llm/prompts.ts), [shared schemas](shared/src/) and [tutor contract](backend/src/tutor/contract.ts). |
+| QA | Use the [backend tests](backend/test/), [Flutter tests](edumind-ui/test/) and [shell browser suite](shells/test/e2e/shells.spec.mjs) as starting points. |
 
-1. **Find your laptop's LAN IP**
-   - Windows: `ipconfig` → Wi-Fi adapter → IPv4 Address (e.g. `192.168.1.50`)
-   - macOS: `ipconfig getifaddr en0`
-2. **Start the backend** — it already binds `0.0.0.0:8080`. Allow Node through
-   the Windows firewall if prompted (or: Settings → Firewall → Allow an app).
-3. **Run the app on the phone** (`cd edumind-ui && flutter run` with the device
-   plugged in), open **Settings** in the app, enter `http://192.168.1.50:8080`,
-   tap **TEST CONNECTION** — it hits `/api/v1/health` and shows db + llm status.
-4. Plain HTTP works out of the box in dev builds:
-   - **Android**: cleartext is enabled via
-     `android/app/src/main/res/xml/network_security_config.xml`. Emulator note:
-     use `http://10.0.2.2:8080` to reach the host machine.
-   - **iOS**: an ATS exception (`NSAllowsArbitraryLoads` +
-     `NSAllowsLocalNetworking`) is set in `ios/Runner/Info.plist`.
+### Verification at `6b96c23`
 
-   Tighten both before any production release.
-5. Onboard on the phone → create a game → the tutorial starts immediately,
-   educational levels arrive seamlessly when generation finishes → results sync
-   back → the game appears in the library. **Turn on airplane mode and replay
-   it** — bundled shell + locally saved spec, zero network.
+- **Passed on Node.js 24.22.3.** `npm ci` succeeded with a writable cache after the default cache path failed. The root build, Prisma Client generation and backend typecheck passed.
+- **Passed.** `npm test` reported 319 tests across shared (96), shells (55), and backend (168), including 12 backend study-mode tests.
+- **Passed.** Keyless HTTP smoke checks covered backend health, Swagger UI, student registration, a mock exam-prep clarification, saved tutor history in the in-memory store, and the standalone preview HTTP page.
+- **Shell Playwright.** Of 16 cases, 12 passed on the first attempt and 2 passed on retry (keeper and lanterns). Goal Shootout draw-pass and Quest Path bridge failed both attempts because the mixed-answer test received a correct result where it expected an incorrect one. All five game families had at least one completed browser session.
+- **Flutter 3.50.1 / Dart 3.14.0.** Dependency resolution succeeded. The primary app passed 172 tests and the reference app passed 2. Primary-app analysis exited nonzero with 97 informational findings, mostly SDK deprecations.
+- **Flutter web.** The release build passed. The default renderer CDN failed certificate validation in the test browser. Rebuilding with `--no-web-resources-cdn` booted in Chromium, and a seeded Grade 7 profile restored its session, opened My Tutor, and successfully sent an exam-prep request to the mock API. First-time browser onboarding, the contextual lesson sheet and stage replay were outside this smoke test.
+- Native-device playback and replay, Codespaces setup and live external providers remain unverified.
+- **PostgreSQL.** On a fresh PostgreSQL 16 database, `prisma:deploy` failed with Prisma `P3018` and PostgreSQL `42P07` at `20260717080422_add_student_interests` because the `Student` table already existed. On a separate empty database, `prisma db push --skip-generate` succeeded, and a registered profile and its device token survived a backend restart. That verifies basic persistence with the current schema. Migration history remains a setup blocker.
 
----
+### Performance and cost context
 
-## The two buddies
+- **Historical measurements.** In the environment recorded in PERF.md, headless boot to menu took about 1.1–1.8 seconds and mock generation took about 4.3 seconds. These measurements cover an earlier shell and mock pipeline.
+- **Live estimates.** PERF.md estimates a fresh standalone game at $0.030–$0.045 and 12–40 seconds on the Haiku path, and $0.09–$0.12 and 15–45 seconds on the escalated path. These are token-based cost estimates and expected timings for standalone games. Actual costs, timings, and content quality with live providers remain unverified, including for Lesson Worlds.
+- **Product targets.** The brief targets an average of at most $0.05 per standalone game and at most 25% escalation. Progressive start is intended to reduce perceived wait where supported. Bundled demos and fully local replay can run without a generation call.
+- **Measurement limits.** `estCostPerGameUsd` combines tracked model calls across different flows and divides by successful standalone generations. Use separate measurements for standalone games, Lesson Worlds, and tutor turns when verifying live cost. [Metrics implementation](backend/src/pipeline/metrics.ts)
 
-Splitting the original single mascot into two specialists makes each emotional
-beat clearer for young children. Both are drawn entirely with code (Phaser
-Graphics in the shells, `CustomPainter` in Flutter — the same character,
-implemented twice) and both wear the student's favorite color.
+See [PERF.md](PERF.md) for the original measurement conditions and estimates.
 
-- **🦜 Hudhud the hoopoe — the exploration guide.** Leads the mission, presents
-  every teach card, and gives hints — his signature fan crest snaps open when an
-  idea strikes. He's there for every gentle moment too: a wrong answer, the
-  take-a-break breather, the "I'm finding your questions" waiting room. (The
-  hoopoe is the only one who ever looks sad — comfort is a guide's job.)
-- **🐝 Nahla the bee — the rewards partner.** Hovers by the XP counter and
-  celebrates everything you earn: correct answers, combos, streaks, level
-  completions, and the end-of-game summary. She loops the loop on a combo and
-  spins on a level-up. **By design, the bee never has a sad face** — she's pure
-  encouragement.
+## Documentation follow-up
 
----
-
-## Testing the Live App
-
-### Quick visual & functional smoke test
-
-The primary app (Grade 7 math + tutor + personalization) is live on web and ready to test:
-
-**URL:** `https://friendly-meme-694vrq6p949jfr9xw-8099.app.github.dev/`  
-**Port:** 8099 (public via GitHub Codespaces)  
-**Commit:** `de75b35` (all visual refresh phases merged)
-
-#### Full End-to-End Flow (5–10 minutes)
-
-1. **Onboarding** — land on the Arabic-first entry screen
-   - Fill name: `أحمد` (or any name)
-   - Select grade: **7** (إعدادي) for the full math experience
-   - Proceed through language, interests, style preferences
-   - App saves profile locally
-
-2. **Start Screen** (Home / الصفحة الرئيسية)
-   - Shows «أهلًا بك» welcome card
-   - Context lens chip (choose your learning perspective: life contexts like تقنية, بيئة, إلخ)
-   - Ready to launch an experience
-
-3. **Journey Screen** (اختر مسارك)
-   - 8 curriculum paths now visible (مفاتيح المدينة, سرّ الرقم المفقود, مدينة لا تنهار, …)
-   - Each has progress ring + ready/soon status
-   - Warm ivory background, Cairo font, navy/orange accents
-
-4. **Path Detail** (مسار التعلم)
-   - Select any path → shows trail/station map
-   - Progress bar: «X من Y جاهزة»
-   - Stations: completed ✓, current play, locked 🔒, coming soon ⋯
-
-5. **Interactive Experience** (تجربة تفاعلية)
-   - Full 6-step lesson: scene → explore → choice → challenge → apply → **check** (تحقق من الفهم)
-   - **Scene**: narrative setup
-   - **Explore**: draggable widget (triangle area)
-   - **Choice**: select correct answer (muted green on success, muted red on error)
-   - **Challenge**: apply the concept (24 m²)
-   - **Apply**: real-world scenario (24 plants)
-   - **Check** ✨ *NEW*: 2–3 quick verification questions, shows score, offers tutor if weak
-   - Proceed button gates on step readiness, never blocks on score
-
-6. **Completion** — small celebration
-   - Progress saved locally
-   - Return to path detail to see updated progress
-
-7. **Tutor** (اسأل أوبن مايند) — in-app help
-   - Full conversation interface (navy bubble for student, warm for tutor)
-   - Interactive math blocks (order sequences, match pairs, etc.) with muted green/red feedback
-   - Offline: shows honest "offline" message (backend not required to test UI)
-
-8. **Me** (ملفي الشخصي) — learner profile
-   - Shows name, grade, progress stats
-   - Language toggle (عربي / English)
-   - Clean, light UI with no purple anywhere
-
-9. **Grade 8+** (honest unavailable state)
-   - Switch profile to grade 8
-   - Reload app → shows **قيد الإعداد** (Coming Soon)
-   - Hudhud mascot, no fake content, honest copy
-
-#### Visual & UX Checklist
-
-✅ **Color system** — four separate palettes → one warm system  
-   - No purple (#6A1B9A) anywhere  
-   - Ivory background (#FDFBF6) throughout  
-   - Navy/ink primary (#14395C)  
-   - Orange accents (#E8872E) for CTAs  
-   - Soft blue selection surfaces (#E9F1F8)  
-   - Muted green (#3E7C59) for success (never bright neon)  
-   - Muted red (#9E4B47) for error  
-
-✅ **Typography** — real Cairo font now rendering  
-   - Arabic glyphs distinctive vs. old Roboto fallback  
-   - Bilingual support (Arabic-first RTL)  
-
-✅ **Components**  
-   - Nav indicator: soft blue (not purple pill)  
-   - Lesson option feedback: muted colors  
-   - Chat bubbles: navy student, calm tutor, muted-red error  
-   - Buttons: consistent orange CTAs  
-
-✅ **Learning logic** (unchanged, all green)  
-   - 8 curriculum paths canonical for Grade 7  
-   - Check step gates on all-answered (never all-correct)  
-   - Honest grade 8/9 state (no fake content)  
-   - Progress migration from old path IDs working  
-
-✅ **Onboarding** — warm baseline aesthetic  
-   - ArchHalo ornament frame  
-   - Calm mascot moments  
-   - Consistent ivory/navy/orange tokens  
-
----
-
-## Automated Test Suite
-
-```bash
-npm test               # shared schema tests + shell static validators + backend API tests
-npm run test:e2e       # Playwright behavioral suite (boots every shell, plays sessions,
-                       # RTL checks, progressive start, static-frame "alive" test)
-cd edumind-ui && flutter test && flutter analyze && flutter build web
-cd ../flutter_module && flutter test && flutter analyze && flutter build web
-```
-
-Result from last main merge: **✅ 58 Flutter tests pass** (all 6 phases verified)  
-Result from code analysis: **✅ No issues found** (analyze clean)  
-Result from web build: **✅ Cairo bundled, app boots** (font verified rendering)
-
----
-
-## Performance & cost
-
-Honest numbers (measured vs. estimated, plus the prompt-cache caveat) live in
-[PERF.md](PERF.md). Short version: the tutorial covers the 10–45 s generation
-window so perceived wait ≈ 0; fresh games target ≤ $0.05 (Haiku path
-~$0.03–0.045 estimated); cached topics, replays, reviews and demos are $0.
-
----
-
-## Data minimization (minors)
-
-Nickname only — no email or real-name fields anywhere. The optional gender field
-exists exclusively for Arabic gendered grammar and is never used otherwise. No
-analytics SDKs. Nothing personal leaves the backend except as task content to
-Anthropic / OpenAI-moderation. Nothing about the student is ever sent to the
-image provider. Branded/licensed characters are never accepted — the normalizer
-maps such requests to original archetypes (COPPA / GDPR-K awareness; a
-production deployment for children still needs its own legal review, verifiable
-parental-consent flow, and a retention policy).
-
----
-
-## Visual System Overhaul (Latest)
-
-The app had **four disconnected color palettes** and the Arabic Cairo font was never actually loading (commented out in pubspec, app rendered fallback Roboto). Commit `de75b35` merges a complete visual refresh:
-
-| What was | What is now |
-|---|---|
-| Purple seed (#6A1B9A) everywhere | Warm olive/ivory (#FDFBF6) + navy ink (#14395C) |
-| Silent Roboto fallback | Real Cairo Arabic variable font bundled offline |
-| M3-purple ChatBubble + bright-neon feedback | Navy student bubble + muted green/red feedback |
-| Theme picker (broken, didn't persist) | Single warm theme system; personalization via accent color only |
-| 4 duplicate palettes (Palette, MiddlePalette, OnbColors, hardcoded hex) | One `AppColors` token set + one `AppRadii` scale |
-| Pastel gradient home (cyan→pink→green) | Warm gradient (ivory→softBlue→cream) |
-| Dead stat widgets + orphaned login screen | Pruned; only `EduCard` kept for dark game chrome |
-
-**Five phased implementation** (all merged to main):
-- **A** (Foundation): token file, real Cairo, unified theme, kill purple rail
-- **C1** (Chrome): tutor bubbles, chat, blocks onto warm tokens
-- **C2** (Learn): lesson feedback muted (green/red success/error)
-- **C4** (Primary): home gradient, about feature colors, prune dead code
-- **C5** (Minimal): game-studio documented as intentionally dark, no changes needed
-
-**Result**: onboarding → middle school → tutor → home → all on one warm system. No purple, no neon, consistent RTL typography.
-
----
-
-## Repo layout
-
-```
-shared/           GameSpec contract: Zod schemas, validators, assembly, JSON schemas for structured outputs
-samples/          golden demo specs (EN ×3 + AR) — demos, tests and mock mode all eat the same files
-shells/           the product: EduCore/GameFeel/Mascot libs, 3 games, build, preview harness, CI tests
-backend/          Fastify 5 API: pipeline, validators, fact-check, storage, OpenAPI docs
-edumind-ui/       primary learner UI: onboarding, session-restore, bilingual home/settings/composer/player/tutor
-                  (Ask Hudhud), interactive tools + readiness/evidence system, warm visual system
-flutter_module/   reference engine app: composer, player, local library, shell parity checks
-scripts/          Kenney CC0 asset fetchers (optional enhancement — see scripts/KENNEY_README.md)
-docs/API.md       complete REST API reference for integrating OpenMind into another app
-DECISIONS.md      every creative/architectural decision, in build order (incl. the v4.1 pivot)
-PERF.md           measured numbers + honest estimates
-```
-
----
+Update the [API guide](docs/API.md) with Lesson Worlds, current tutor modes, evidence and placement endpoints. Refresh the [Ask Hudhud guide](docs/ASK_HUDHUD_INTERACTIVE.md) after validating the live study modes, and reconcile the [migration guide](backend/prisma/MIGRATIONS.md) with the checked-in migration chain.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
