@@ -126,16 +126,65 @@ For local persistence, run `docker compose up -d db` from the root and configure
 
 ## GitHub Codespaces
 
-The repository has no checked-in dev container. Create a Codespace on your development branch and install Node.js 22+ and a compatible Flutter SDK if the default image lacks them. Run the root setup and start the backend. Forward port 8080 and copy its HTTPS forwarded URL. In a second terminal, build and serve the app:
+Use Node.js 22+ and Flutter 3.50.1 with Dart 3.14.0. The repository does not install Flutter automatically. In a Bash terminal, install it once if it is missing:
 
 ```bash
-cd edumind-ui
-flutter pub get
-flutter build web --no-web-resources-cdn --dart-define=API_BASE_URL=https://YOUR-8080-FORWARDED-HOST
-node tool/serve.mjs
+if [ ! -x "$HOME/flutter/bin/flutter" ]; then
+  git clone --depth 1 --branch 3.50.1 https://github.com/flutter/flutter.git "$HOME/flutter"
+fi
+grep -qxF 'export PATH="$HOME/flutter/bin:$PATH"' "$HOME/.bashrc" ||
+  printf '\nexport PATH="$HOME/flutter/bin:$PATH"\n' >> "$HOME/.bashrc"
+source "$HOME/.bashrc"
+flutter --version
 ```
 
-Forward port 5000 and open the UI URL. Use the Ports panel to check access to the API URL from the same browser. If restricting CORS, add the exact forwarded UI origin to `CORS_ORIGINS`. Codespaces port authentication can affect cross-origin requests, so check the API health URL and the browser network panel before debugging registration. Keep development ports private when possible. To preview the standalone shells, run `npm run preview` from the root and forward port 8765. This Codespaces procedure was derived from repository configuration.
+### First run
+
+From the repository root, install dependencies and build the shared assets:
+
+```bash
+npm ci
+npm run build
+npm -w backend run prisma:generate
+```
+
+**Terminal 1 — Backend**
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+MOCK_LLM=true DATABASE_URL= HOST=0.0.0.0 PORT=8080 npm run dev:backend
+```
+
+Keep this terminal running. In the **Ports** panel, forward port **8080** and copy its HTTPS URL.
+
+**Terminal 2 — Flutter web**
+
+```bash
+cd "$(git rev-parse --show-toplevel)/edumind-ui"
+flutter pub get
+read -rp 'Forwarded HTTPS URL for port 8080: ' OPENMIND_API_URL
+flutter build web --no-web-resources-cdn \
+  --dart-define="API_BASE_URL=${OPENMIND_API_URL%/}"
+PORT=5000 node tool/serve.mjs
+```
+
+Keep this terminal running. Open port **5000** from the **Ports** panel to use OpenMind. Check the backend at `https://<forwarded-8080-url>/api/v1/health`.
+
+### Restart an existing Codespace
+
+Start the backend and web preview in separate terminals:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+MOCK_LLM=true DATABASE_URL= HOST=0.0.0.0 PORT=8080 npm run dev:backend
+```
+
+```bash
+cd "$(git rev-parse --show-toplevel)/edumind-ui"
+PORT=5000 node tool/serve.mjs
+```
+
+Rebuild the Flutter web app if its source or the backend URL changes. Backend data uses temporary in-memory storage and is cleared when the backend restarts.
 
 ## Configuration
 
