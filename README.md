@@ -1,4 +1,4 @@
-# OpenMind — Interactive Learning Through Experience
+# OpenMind — Interactive Learning 
 
 OpenMind is a bilingual educational platform descended from [EduMind Game Studio](https://github.com/YassoBases/edumind-game-studio). It helps students build understanding through exploration, interaction, feedback, and applying what they learn. The interface supports English and Arabic with RTL layouts and bundles the Cairo variable font.
 
